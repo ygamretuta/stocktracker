@@ -107,6 +107,8 @@ export default {
       const out = $('[data-out="calc"]');
       const addBtn = $('[data-act="add"]');
       addBtn.disabled = true;
+      const picked = app.hasPick(config.symbol);
+      addBtn.textContent = picked ? '✓ Already in my picks' : '＋ Add to my picks';
       if (!p) { out.innerHTML = '<span class="muted">No price yet for this stock.</span>'; return; }
       const lot = lotFor(p);
       const r = plan(Number(config.amount), p, lot, config.fees);
@@ -115,7 +117,7 @@ export default {
         out.innerHTML = `<div class="warn">That's not enough for one ${term('board lot', 'board-lot')} of ${esc(config.symbol)} (${int(lot)} shares).<br>You'd need at least <b>${peso(r.oneLot)}</b>.</div>`;
         return;
       }
-      addBtn.disabled = false;
+      addBtn.disabled = picked;
       const be = breakEven(r.shares, r.total, config.fees);
       out.innerHTML = `
         <div class="headline">You can buy <b>${int(r.shares)} shares</b> of ${esc(config.symbol)} for <b>${peso(r.total)}</b>.</div>
@@ -171,6 +173,7 @@ export default {
       if (amt) { config.amount = Number(amt.dataset.amt); amountIn.value = config.amount; save(); renderPlan(); return; }
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (act === 'add') {
+        if (app.hasPick(config.symbol)) return;
         const p = buyPrice();
         const r = current();
         if (!r?.shares) return;
@@ -204,7 +207,7 @@ export default {
 
     return {
       onMarket(m) { market = m; renderPlan(); renderPositions(); },
-      onPositions() { renderPositions(); },
+      onPositions() { renderPlan(); renderPositions(); },
       // Lets other parts of the app (welcome card) pre-fill the planner.
       onPlan(sym) { if (sym) setSymbol(sym); symIn.focus(); body.scrollTop = 0; },
     };

@@ -96,6 +96,11 @@ export function followToggle(config, save) {
 export const term = (label, key) =>
   `<button type="button" class="term" data-term="${esc(key)}" title="What does this mean?">${esc(label)}</button>`;
 
+// "＋ Pick" button for a stock; disabled once it is already in My Picks.
+export const pickButton = (sym, picked, label = '＋ Pick', cls = 'btn sm') => picked
+  ? `<button class="${cls}" disabled title="${esc(sym)} is already in My Picks">✓ Picked</button>`
+  : `<button class="${cls}" data-pick="${esc(sym)}" title="Add ${esc(sym)} to My Picks" aria-label="Add ${esc(sym)} to My Picks">${label}</button>`;
+
 // Short confirmation at the bottom of the screen, optionally with an action (e.g. Undo).
 export function toast(message, { action, onAction, ms = 5000 } = {}) {
   const box = document.getElementById('toasts');

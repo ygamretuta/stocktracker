@@ -1,4 +1,4 @@
-import { esc, el, price, chg, compact } from '../util.js';
+import { esc, el, price, chg, compact, pickButton } from '../util.js';
 
 const TABS = {
   gainers: { label: 'Up most', sort: (a, b) => b.change - a.change },
@@ -52,10 +52,10 @@ export default {
           <td class="num">${price(s.price)}</td>
           <td class="num">${chg(s.change)}</td>
           <td class="num muted hide-sm">₱${compact(s.price * s.volume)}</td>
-          <td class="num"><button class="btn sm" data-pick="${esc(s.symbol)}" title="Add ${esc(s.symbol)} to My Picks" aria-label="Add ${esc(s.symbol)} to My Picks">＋ Pick</button></td>
+          <td class="num">${pickButton(s.symbol, app.hasPick(s.symbol))}</td>
         </tr>`).join('')}</tbody></table>`;
     }
 
-    return { onMarket(m) { last = m; render(); }, onFocus() { render(); } };
+    return { onMarket(m) { last = m; render(); }, onFocus() { render(); }, onPositions() { render(); } };
   },
 };

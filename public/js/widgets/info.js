@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { esc, price, chg, compact, int, symbolInput, followToggle, term } from '../util.js';
+import { esc, price, chg, compact, int, symbolInput, followToggle, term, pickButton } from '../util.js';
 
 export default {
   type: 'info',
@@ -62,7 +62,7 @@ export default {
           ${stat(term('Free float', 'free-float'), d.freeFloat != null ? d.freeFloat + '%' : '—')}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-          <button class="btn sm primary" data-pick="${esc(d.symbol)}">＋ Add to My Picks</button>
+          ${pickButton(d.symbol, app.hasPick(d.symbol), '＋ Add to My Picks', 'btn sm primary')}
           <a class="btn sm ghost" href="${esc(d.edgeUrl)}" target="_blank" rel="noopener">PSE Edge page ↗</a>
         </div>`;
     }
@@ -94,6 +94,7 @@ export default {
 
     return {
       onMarket(m) { market = m; live = m.bySymbol.get(config.symbol) || null; render(); },
+      onPositions() { render(); },
       onFocus(sym) { if (config.linked && sym !== config.symbol) setSymbol(sym); },
     };
   },

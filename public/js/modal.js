@@ -1,11 +1,12 @@
 // Stock detail modal: price, key facts, a 6-month chart, the company profile and recent news.
 import { api, market } from './api.js';
-import { esc, price, chg, compact, int, term } from './util.js';
+import { esc, price, chg, compact, int, term, pickButton } from './util.js';
 
 const root = document.getElementById('stock-modal');
 let reqId = 0;
 let chart = null;
 let opener = null;
+let current = null;
 
 function close() {
   root.hidden = true;
@@ -13,6 +14,7 @@ function close() {
   chart?.remove();
   chart = null;
   reqId++;
+  current = null;
   document.body.classList.remove('modal-open');
   opener?.focus?.();
   opener = null;
@@ -86,6 +88,12 @@ function drawChart(host, candles) {
   chart.timeScale().fitContent();
 }
 
+// Re-draws the modal's pick button, e.g. after the stock was added to My Picks.
+export function syncPickButton(app) {
+  const slot = root.querySelector('[data-pickslot]');
+  if (current && slot) slot.innerHTML = pickButton(current, app.hasPick(current), '＋ Add to My Picks', 'btn primary');
+}
+
 export function openStock(sym, app, from = document.activeElement) {
   const id = ++reqId;
   opener = from;
@@ -109,14 +117,16 @@ export function openStock(sym, app, from = document.activeElement) {
         <section><h3>Recent news &amp; announcements</h3><div data-news><div class="loading">Loading…</div></div></section>
       </div>
       <footer class="modal-foot">
-        <button class="btn primary" data-pick>＋ Add to My Picks</button>
+        <span data-pickslot></span>
         <a class="btn" data-edge target="_blank" rel="noopener" hidden>PSE Edge ↗</a>
       </footer>
     </div>`;
   const $ = (q) => root.querySelector(q);
   const dialog = $('.modal');
   dialog.focus();
-  $('[data-pick]').addEventListener('click', () => app.addPick(sym));
+  current = sym;
+  syncPickButton(app);
+  $('[data-pickslot]').addEventListener('click', (e) => { if (e.target.closest('[data-pick]')) app.addPick(sym); });
 
   const fill = (q, html) => { if (id === reqId) $(q).innerHTML = html; };
   const live = () => market.bySymbol.get(sym);

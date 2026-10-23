@@ -1,4 +1,4 @@
-import { esc, el, price, chg, compact, toast } from '../util.js';
+import { esc, el, price, chg, compact, toast, pickButton } from '../util.js';
 
 export default {
   type: 'watchlist',
@@ -61,13 +61,13 @@ export default {
             <td class="num">${price(s?.price)}</td>
             <td class="num">${s ? chg(s.change) : '—'}</td>
             <td class="num muted hide-sm">${compact(s?.volume)}</td>
-            <td class="num"><button class="btn sm" data-pick="${esc(sym)}" title="Add ${esc(sym)} to My Picks" aria-label="Add ${esc(sym)} to My Picks">＋ Pick</button></td>
+            <td class="num">${pickButton(sym, app.hasPick(sym))}</td>
             <td class="num"><button class="x" data-remove="${esc(sym)}" title="Remove ${esc(sym)} from watchlist" aria-label="Remove ${esc(sym)}">×</button></td>
           </tr>`;
         }).join('')}</tbody></table>
         <div class="hint">Tip: click a stock to see its chart.</div>`;
     }
 
-    return { onMarket(m) { last = m; render(); }, onFocus() { render(); } };
+    return { onMarket(m) { last = m; render(); }, onFocus() { render(); }, onPositions() { render(); } };
   },
 };
