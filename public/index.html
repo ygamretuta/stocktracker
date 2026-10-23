@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PSE Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23121821'/><path d='M6 22l6-7 5 4 9-11' stroke='%2322c55e' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <link rel="stylesheet" href="/vendor/gridstack/gridstack.min.css" />
+  <link rel="stylesheet" href="/vendor/gridstack/gridstack-extra.min.css" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><path d="M6 22l6-7 5 4 9-11" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>PSE Tracker</span>
+    </div>
+
+    <label class="lookup" title="Type a company name or ticker symbol, then press Enter">
+      <span class="lookup-icon" aria-hidden="true">⌕</span>
+      <input id="lookup" list="symbols" placeholder="Look up a stock (e.g. JFC or Jollibee)" spellcheck="false" autocomplete="off" />
+    </label>
+
+    <div class="status">
+      <span class="pill" id="market-status" title="Based on regular PSE hours. Holidays aren't detected.">—</span>
+      <span class="muted small" id="updated">Loading…</span>
+    </div>
+
+    <nav class="actions" aria-label="Dashboard actions">
+      <button class="btn" id="refresh" title="Get the latest prices now (they also update every 30 seconds)"><span aria-hidden="true">↻</span> Refresh</button>
+      <button class="btn" id="edit-layout" title="Remove widgets or reset the layout"><span aria-hidden="true">✎</span> Edit layout</button>
+      <div class="menu-wrap">
+        <button class="btn primary" id="add-widget" aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">＋</span> Add widget</button>
+        <div class="menu" id="widget-menu" hidden></div>
+      </div>
+    </nav>
+  </header>
+
+  <div class="ticker" id="ticker" title="Most-traded stocks today. Click one to view it."></div>
+
+  <div class="edit-banner" id="edit-banner" hidden>
+    <div>
+      <b>Editing layout.</b>
+      Use <b>Remove</b> to take a widget off, or reset to the default layout. (You can drag and resize widgets anytime, no need to be in this mode.)
+    </div>
+    <div class="edit-actions">
+      <button class="btn ghost" id="reset-layout">Reset to default</button>
+      <button class="btn primary" id="done-editing">Done</button>
+    </div>
+  </div>
+
+  <main>
+    <section class="welcome" id="welcome" hidden>
+      <div class="welcome-text">
+        <h2>Welcome to your PSE dashboard 👋</h2>
+        <ol>
+          <li><b>Look up any stock</b> with the search box at the top. The chart and info panels switch to it.</li>
+          <li><b>Plan a purchase</b> in <i>Put Money On</i>: enter an amount and see how many shares it buys, after fees.</li>
+          <li><b>Arrange it your way:</b> drag any widget by its title bar <span class="grip demo" aria-hidden="true">⠿</span> and resize it from its bottom-right corner.</li>
+          <li><b>Stuck on a word?</b> Click any <span class="term demo">dotted term</span> for a plain explanation, or the <b>?</b> on a widget to learn what it shows.</li>
+        </ol>
+      </div>
+      <div class="welcome-actions">
+        <button class="btn primary" id="welcome-plan">Plan a purchase</button>
+        <button class="btn ghost" id="welcome-close">Got it</button>
+      </div>
+    </section>
+
+    <div class="grid-stack" id="grid"></div>
+    <div class="empty" id="empty" hidden>
+      <p>Your dashboard is empty.</p>
+      <button class="btn primary" id="empty-add">＋ Add a widget</button>
+      <button class="btn" id="empty-reset">Restore default layout</button>
+    </div>
+  </main>
+
+  <div class="term-pop" id="term-pop" role="tooltip" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <datalist id="symbols"></datalist>
+  <script src="/vendor/gridstack/gridstack-all.js"></script>
+  <script src="/vendor/lightweight-charts/lightweight-charts.standalone.production.js"></script>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
