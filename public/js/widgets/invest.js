@@ -47,6 +47,7 @@ export default {
               <span>PSE fee %</span><input class="field" type="number" step="0.001" data-fee="pse">
               <span>SCCP fee %</span><input class="field" type="number" step="0.001" data-fee="sccp">
               <span>Sales tax when selling %</span><input class="field" type="number" step="0.01" data-fee="salesTax">
+              <span>Custodial fee ₱/year (0 = none)</span><input class="field" type="number" step="1" data-fee="custodial">
             </div>
           </details>
         </div>
@@ -122,6 +123,7 @@ export default {
         <div class="row"><span class="muted">${term('Broker fees', 'fees')}</span><span>${peso(r.fee.total)}</span></div>
         <div class="row total"><span>Total you pay</span><span>${peso(r.total)}</span></div>
         <div class="row"><span class="muted">Money left over</span><span>${peso(r.left)}</span></div>
+        ${config.fees.custodial > 0 ? `<div class="row"><span class="muted">Custodial fee (yearly, not in total)</span><span>${peso(config.fees.custodial)}</span></div>` : ''}
         <div class="row"><span class="muted">${term('Break-even price', 'break-even')}</span><span>₱${price(be)} <span class="muted small">(${pct(((be - p) / p) * 100)})</span></span></div>`;
     }
 
@@ -194,7 +196,7 @@ export default {
         return;
       }
       const row = e.target.closest('[data-sym]');
-      if (row) app.focus(row.dataset.sym);
+      if (row) app.show(row.dataset.sym, row);
     });
 
     loadDetail();

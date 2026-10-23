@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { el, esc, price, chg, compact, pct, dir, symbolInput, followToggle } from '../util.js';
+import { el, esc, price, chg, pct, dir, symbolInput, followToggle } from '../util.js';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y', '5Y'];
 

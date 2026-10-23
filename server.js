@@ -7,6 +7,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getNews } from './news.js';
+import { parseCompanyProfile, parseIndices, findSecurityId, parseStockDetail, normaliseCandles } from './parsers.js';
+import { validateState } from './state.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 5173;
@@ -44,13 +46,6 @@ async function get(url, opts = {}) {
   return res;
 }
 
-const text = (html) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const num = (s) => {
-  if (s == null) return null;
-  const n = parseFloat(String(s).replace(/[^0-9.\-]/g, ''));
-  return Number.isFinite(n) ? n : null;
-};
-
 // ---------- data sources ----------
 async function getStocks() {
   return cached('stocks', 20_000, async () => {
@@ -69,19 +64,7 @@ async function getStocks() {
 async function getIndices() {
   return cached('indices', 30_000, async () => {
     const html = await (await get(`${EDGE}/index/form.do`)).text();
-    const asOf = (html.match(/As of ([^<]+)<\/th>/) || [])[1]?.trim() || null;
-    const rows = [...html.matchAll(/<td class="label">([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<td([^>]*)>([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>/g)];
-    const indices = rows.map(([, name, value, attrs, chg, pct]) => {
-      const sign = /color:\s*red/.test(attrs) || pct.includes('▼') ? -1 : 1;
-      return {
-        name: name.trim(),
-        value: num(value),
-        change: sign * Math.abs(num(chg) ?? 0),
-        percent: sign * Math.abs(num(pct) ?? 0),
-      };
-    });
-    if (!indices.length) throw new Error('Could not parse PSE index table');
-    return { asOf, indices };
+    return parseIndices(html);
   });
 }
 
@@ -98,9 +81,9 @@ async function resolveIds(symbol) {
     const candidates = [list.find((c) => c.symbol === symbol), list.find((c) => c.symbol === term)].filter(Boolean);
     for (const match of candidates) {
       const page = await (await get(`${EDGE}/companyPage/stockData.do?cmpy_id=${match.cmpyId}`)).text();
-      const opt = [...page.matchAll(/<option value="(\d+)"[^>]*>\s*([^<\s]+)/g)].find(([, , sym]) => sym === symbol);
-      if (!opt && match.symbol !== symbol) continue;
-      const value = { cmpyId: match.cmpyId, securityId: opt ? opt[1] : null, company: match.cmpyNm };
+      const securityId = findSecurityId(page, symbol);
+      if (!securityId && match.symbol !== symbol) continue;
+      const value = { cmpyId: match.cmpyId, securityId, company: match.cmpyNm };
       ids.set(symbol, value);
       return value;
     }
@@ -113,36 +96,20 @@ async function getStockDetail(symbol) {
     const { cmpyId, securityId, company } = await resolveIds(symbol);
     const qs = `cmpy_id=${cmpyId}${securityId ? `&security_id=${securityId}` : ''}`;
     const html = await (await get(`${EDGE}/companyPage/stockData.do?${qs}`)).text();
-    const fields = {};
-    for (const [, k, v] of html.matchAll(/<th>([^<]+)<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/g)) fields[text(k)] = text(v);
-    const prev = fields['Previous Close and Date'] || '';
     return {
       symbol,
       company,
-      status: fields['Status'] || null,
-      boardLot: num(fields['Board Lot']),
-      last: num(fields['Last Traded Price']),
-      open: num(fields['Open']),
-      high: num(fields['High']),
-      low: num(fields['Low']),
-      prevClose: num(prev.split(' ')[0]),
-      prevCloseDate: (prev.match(/\(([^)]+)\)/) || [])[1] || null,
-      change: fields['Change(% Change)'] || null,
-      volume: num(fields['Volume']),
-      value: num(fields['Value']),
-      avgPrice: num(fields['Average Price']),
-      week52High: num(fields['52-Week High']),
-      week52Low: num(fields['52-Week Low']),
-      pe: num(fields['P/E Ratio']),
-      sectorPe: num(fields['Sector P/E Ratio']),
-      bookValue: num(fields['Book Value']),
-      pbv: num(fields['P/BV Ratio']),
-      marketCap: num(fields['Market Capitalization']),
-      outstanding: num(fields['Outstanding Shares']),
-      freeFloat: num(fields['Free Float Level(%)']),
-      listingDate: fields['Listing Date'] || null,
+      ...parseStockDetail(html, symbol),
       edgeUrl: `${EDGE}/companyPage/stockData.do?${qs}`,
     };
+  });
+}
+
+async function getCompanyProfile(symbol) {
+  return cached(`profile:${symbol}`, 6 * 3_600_000, async () => {
+    const { cmpyId, company } = await resolveIds(symbol);
+    const html = await (await get(`${EDGE}/companyInformation/form.do?cmpy_id=${cmpyId}`)).text();
+    return { symbol, company, ...parseCompanyProfile(html), edgeUrl: `${EDGE}/companyInformation/form.do?cmpy_id=${cmpyId}` };
   });
 }
 
@@ -162,15 +129,7 @@ async function getHistory(symbol, range) {
       body: JSON.stringify({ cmpy_id: cmpyId, security_id: securityId, startDate: mdy(start), endDate: mdy(end) }),
     });
     const { chartData = [] } = await res.json();
-    // PSE Edge sometimes repeats a day; the chart needs unique, ascending dates.
-    const byDay = new Map();
-    for (const c of chartData) {
-      if (![c.OPEN, c.HIGH, c.LOW, c.CLOSE].every(Number.isFinite)) continue;
-      const d = new Date(c.CHART_DATE.replace(' 00:00:00', ''));
-      const time = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      byDay.set(time, { time, open: c.OPEN, high: c.HIGH, low: c.LOW, close: c.CLOSE, value: c.VALUE });
-    }
-    const candles = [...byDay.values()].sort((a, b) => (a.time < b.time ? -1 : 1));
+    const candles = normaliseCandles(chartData);
     return { symbol, range, candles };
   });
 }
@@ -215,6 +174,13 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
+// Browsers send Origin on cross-site writes; refuse any that isn't this server's own page.
+function sameOrigin(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try { return new URL(origin).host === req.headers.host; } catch { return false; }
+}
+
 const SYMBOL_RE = /^[A-Z0-9]{1,12}$/;
 
 async function readBody(req, limit = 2_000_000) {
@@ -239,6 +205,11 @@ const server = http.createServer(async (req, res) => {
       if (!SYMBOL_RE.test(sym)) return send(res, 400, { error: 'Bad symbol' });
       return send(res, 200, await getStockDetail(sym));
     }
+    if ((m = p.match(/^\/api\/company\/([^/]+)$/))) {
+      const sym = decodeURIComponent(m[1]).toUpperCase();
+      if (!SYMBOL_RE.test(sym)) return send(res, 400, { error: 'Bad symbol' });
+      return send(res, 200, await getCompanyProfile(sym));
+    }
     if ((m = p.match(/^\/api\/history\/([^/]+)$/))) {
       const sym = decodeURIComponent(m[1]).toUpperCase();
       if (!SYMBOL_RE.test(sym)) return send(res, 400, { error: 'Bad symbol' });
@@ -247,7 +218,10 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/state') {
       if (req.method === 'GET') return send(res, 200, (await readState()) || {});
       if (req.method === 'PUT') {
-        await writeState(JSON.parse(await readBody(req)));
+        if (!sameOrigin(req)) return send(res, 403, { error: 'Cross-origin write refused' });
+        let body;
+        try { body = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'Invalid JSON' }); }
+        await writeState(validateState(body));
         return send(res, 200, { ok: true });
       }
     }
@@ -255,7 +229,7 @@ const server = http.createServer(async (req, res) => {
     return serveStatic(req, res, p);
   } catch (err) {
     console.error(p, err.message);
-    return send(res, 502, { error: err.message });
+    return send(res, err.status || 502, { error: err.message });
   }
 });
 

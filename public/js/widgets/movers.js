@@ -35,8 +35,10 @@ export default {
 
     body.classList.add('flush');
     body.addEventListener('click', (e) => {
+      const pick = e.target.closest('[data-pick]');
+      if (pick) { app.addPick(pick.dataset.pick); return; }
       const row = e.target.closest('[data-sym]');
-      if (row) app.focus(row.dataset.sym);
+      if (row) app.show(row.dataset.sym, row);
     });
 
     function render() {
@@ -44,12 +46,13 @@ export default {
       const traded = last.stocks.filter((s) => s.volume > 0 && s.price * s.volume >= 100_000);
       const rows = [...traded].sort(TABS[config.tab].sort).slice(0, config.count);
       body.innerHTML = `<table class="t">
-        <thead><tr><th>Stock</th><th class="num">Price</th><th class="num">Today</th><th class="num hide-sm">Traded</th></tr></thead>
+        <thead><tr><th>Stock</th><th class="num">Price</th><th class="num">Today</th><th class="num hide-sm">Traded</th><th></th></tr></thead>
         <tbody>${rows.map((s) => `<tr class="click${app.focused === s.symbol ? ' selected' : ''}" data-sym="${esc(s.symbol)}" title="Click to view ${esc(s.symbol)}">
           <td><div class="sym">${esc(s.symbol)}</div><div class="name">${esc(s.name)}</div></td>
           <td class="num">${price(s.price)}</td>
           <td class="num">${chg(s.change)}</td>
           <td class="num muted hide-sm">₱${compact(s.price * s.volume)}</td>
+          <td class="num"><button class="btn sm" data-pick="${esc(s.symbol)}" title="Add ${esc(s.symbol)} to My Picks" aria-label="Add ${esc(s.symbol)} to My Picks">＋ Pick</button></td>
         </tr>`).join('')}</tbody></table>`;
     }
 

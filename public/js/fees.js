@@ -1,7 +1,9 @@
 // Board-lot + PH broker-fee math used by the Put Money On widget.
 
 // Typical PH online-broker fees. Rates are percentages.
-export const DEFAULT_FEES = { commission: 0.25, minCommission: 20, vat: 12, pse: 0.005, sccp: 0.01, salesTax: 0.1 };
+// `custodial` is BPI Trade's yearly custody fee in pesos. It isn't charged per trade, so it
+// stays out of fees()/plan()/breakEven() and is shown as a separate yearly cost.
+export const DEFAULT_FEES = { commission: 0.25, minCommission: 20, vat: 12, pse: 0.005, sccp: 0.01, salesTax: 0.1, custodial: 120 };
 
 // PSE board lot table by price band (used when PSE Edge doesn't report one).
 export function boardLot(p) {

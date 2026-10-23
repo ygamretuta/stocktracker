@@ -12,6 +12,7 @@ export const api = {
   indices: () => json('/api/indices'),
   news: () => json('/api/news'),
   stock: (sym) => json(`/api/stock/${encodeURIComponent(sym)}`),
+  company: (sym) => json(`/api/company/${encodeURIComponent(sym)}`),
   history: (sym, range) => json(`/api/history/${encodeURIComponent(sym)}?range=${range}`),
   loadState: () => json('/api/state'),
   saveState: (state) => json('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) }),

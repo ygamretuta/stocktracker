@@ -1,6 +1,8 @@
 import { api, market } from './api.js';
-import { el, esc, price, dir, pct, debounce, marketStatus, parseSymbol, setSymbolResolver, resolveSymbol, toast } from './util.js';
+import { el, esc, price, int, peso, dir, pct, debounce, marketStatus, parseSymbol, setSymbolResolver, resolveSymbol, toast } from './util.js';
 import { GLOSSARY } from './glossary.js';
+import { openStock } from './modal.js';
+import { DEFAULT_FEES, boardLot, plan } from './fees.js';
 import overview from './widgets/overview.js';
 import chart from './widgets/chart.js';
 import info from './widgets/info.js';
@@ -37,6 +39,8 @@ const app = {
     for (const { instance } of live.values()) instance.onFocus?.(sym);
   },
   resolveSymbol,
+  // Click on a stock anywhere: point the chart/info widgets at it and open its detail modal.
+  show(sym, from) { app.focus(sym); openStock(sym, app, from); },
   getPositions: () => state.positions,
   // Every symbol the person follows: watchlists, picks, and the stock on screen.
   myStocks() {
@@ -44,6 +48,27 @@ const app = {
     for (const w of state.widgets) if (w.type === 'watchlist') (w.config?.symbols || []).forEach((s) => set.add(s));
     if (app.focused) set.add(app.focused);
     return set;
+  },
+  // Adds a practice pick for `sym`, sized like the Put Money On planner (its amount and fees,
+  // or ₱10,000 and default fees when that widget isn't on the dashboard).
+  async addPick(sym) {
+    const cfg = state.widgets.find((w) => w.type === 'invest')?.config;
+    const amount = Number(cfg?.amount) || 10000;
+    const fees = { ...DEFAULT_FEES, ...cfg?.fees };
+    const p = market.bySymbol.get(sym)?.price;
+    if (!p) { toast(`No price yet for ${sym}, so it can't be added.`); return; }
+    let lot = null;
+    try { lot = (await api.stock(sym)).boardLot; } catch { /* fall back to the price table */ }
+    const r = plan(amount, p, lot || boardLot(p), fees);
+    if (!r?.shares) { toast(`${peso(amount, 0)} isn't enough for one board lot of ${sym}. You'd need ${peso(r?.oneLot ?? 0)}.`); return; }
+    const pick = {
+      id: newId(), symbol: sym, shares: r.shares, price: p, fees: r.fee.total, total: r.total,
+      date: new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }),
+    };
+    app.setPositions([...app.getPositions(), pick]);
+    toast(`Added ${int(r.shares)} ${sym} shares (${peso(r.total, 0)}) to your picks`, {
+      action: 'Undo', onAction: () => app.setPositions(app.getPositions().filter((x) => x.id !== pick.id)),
+    });
   },
   setPositions(list) {
     state.positions = list;
@@ -328,7 +353,7 @@ market.subscribe((m) => {
 });
 tickerEl.addEventListener('click', (e) => {
   const t = e.target.closest('[data-sym]');
-  if (t) app.focus(t.dataset.sym);
+  if (t) app.show(t.dataset.sym, t);
 });
 
 // ---------- boot ----------

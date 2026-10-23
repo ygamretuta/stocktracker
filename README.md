@@ -14,6 +14,16 @@ Open http://localhost:5173.
 To open it to other devices on your home Wi-Fi (phone, tablet), run `npm run start:lan` and visit `http://<your-mac's-ip>:5173`.
 It is not meant to be deployed to the internet.
 
+## Development
+
+```bash
+npm test        # fee math, PSE Edge parsers, state validation
+npm run lint    # eslint
+npm run check   # both
+```
+
+There is no build step; the browser loads the files in `public/` directly. Requires Node 18.17+.
+
 ## Using the dashboard
 
 - **Look up a stock** with the search box at the top (ticker or company name).
@@ -48,4 +58,4 @@ Both are free, unofficial sources. Quotes may lag the exchange by a few minutes,
 
 Your layout, watchlists, and picks are saved to `data/state.json`. Delete it to start over.
 
-Fee defaults (editable in the widget) match BPI Trade's published schedule: 0.25% commission (₱20 min), 12% VAT on commission, 0.005% PSE fee, 0.01% SCCP fee, and 0.1% stock transaction tax on sells (cut from 0.6% by the CMEPA law, effective July 1, 2025). BPI Trade may also charge a ₱120/year custodial fee, which the planner doesn't include.
+Fee defaults (editable in the widget) match BPI Trade's published schedule: 0.25% commission (₱20 min), 12% VAT on commission, 0.005% PSE fee, 0.01% SCCP fee, and 0.1% stock transaction tax on sells (cut from 0.6% by the CMEPA law, effective July 1, 2025). The ₱120/year custodial fee is shown as a separate yearly cost in the planner (set it to 0 to hide it); it isn't part of the per-trade total or break-even.

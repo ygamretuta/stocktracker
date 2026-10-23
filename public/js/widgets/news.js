@@ -50,7 +50,7 @@ export default {
     body.classList.add('flush');
     body.addEventListener('click', (e) => {
       const chip = e.target.closest('[data-sym]');
-      if (chip) { e.preventDefault(); app.focus(chip.dataset.sym); }
+      if (chip) { e.preventDefault(); app.show(chip.dataset.sym, chip); }
     });
 
     function render() {

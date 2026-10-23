@@ -30,6 +30,8 @@ export default {
 
     body.classList.add('flush');
     body.addEventListener('click', (e) => {
+      const pick = e.target.closest('[data-pick]');
+      if (pick) { app.addPick(pick.dataset.pick); return; }
       const rm = e.target.closest('[data-remove]');
       if (rm) {
         const sym = rm.dataset.remove;
@@ -41,7 +43,7 @@ export default {
         return;
       }
       const row = e.target.closest('[data-sym]');
-      if (row) app.focus(row.dataset.sym);
+      if (row) app.show(row.dataset.sym, row);
     });
 
     function render() {
@@ -51,7 +53,7 @@ export default {
         return;
       }
       body.innerHTML = `<table class="t">
-        <thead><tr><th>Stock</th><th class="num">Price</th><th class="num">Today</th><th class="num hide-sm">Volume</th><th></th></tr></thead>
+        <thead><tr><th>Stock</th><th class="num">Price</th><th class="num">Today</th><th class="num hide-sm">Volume</th><th></th><th></th></tr></thead>
         <tbody>${config.symbols.map((sym) => {
           const s = last.bySymbol.get(sym);
           return `<tr class="click${app.focused === sym ? ' selected' : ''}" data-sym="${esc(sym)}" title="Click to view ${esc(sym)}">
@@ -59,6 +61,7 @@ export default {
             <td class="num">${price(s?.price)}</td>
             <td class="num">${s ? chg(s.change) : '—'}</td>
             <td class="num muted hide-sm">${compact(s?.volume)}</td>
+            <td class="num"><button class="btn sm" data-pick="${esc(sym)}" title="Add ${esc(sym)} to My Picks" aria-label="Add ${esc(sym)} to My Picks">＋ Pick</button></td>
             <td class="num"><button class="x" data-remove="${esc(sym)}" title="Remove ${esc(sym)} from watchlist" aria-label="Remove ${esc(sym)}">×</button></td>
           </tr>`;
         }).join('')}</tbody></table>

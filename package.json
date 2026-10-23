@@ -4,7 +4,10 @@
   "description": "Local PSE stock dashboard",
   "scripts": {
     "start": "node server.js",
-    "start:lan": "HOST=0.0.0.0 node server.js"
+    "start:lan": "HOST=0.0.0.0 node server.js",
+    "test": "node --test test/",
+    "lint": "eslint .",
+    "check": "npm run lint && npm test"
   },
   "license": "ISC",
   "type": "module",
@@ -12,5 +15,12 @@
     "gridstack": "^11.5.1",
     "lightweight-charts": "^4.2.3"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=18.17"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0"
+  }
 }

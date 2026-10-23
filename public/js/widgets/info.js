@@ -10,7 +10,7 @@ export default {
   size: { w: 3, h: 6, minW: 2, minH: 4 },
   defaults: { symbol: 'JFC', linked: true },
 
-  mount({ body, tools, config, save, setTitle }) {
+  mount({ body, tools, config, save, setTitle, app }) {
     const input = symbolInput(config.symbol, (sym) => setSymbol(sym));
     tools.prepend(input, followToggle(config, save));
 
@@ -20,6 +20,11 @@ export default {
     let reqId = 0;
 
     const paint = () => setTitle(`Info · ${config.symbol}`);
+
+    body.addEventListener('click', (e) => {
+      const pick = e.target.closest('[data-pick]');
+      if (pick) app.addPick(pick.dataset.pick);
+    });
 
     function render() {
       if (!detail) return;
@@ -57,6 +62,7 @@ export default {
           ${stat(term('Free float', 'free-float'), d.freeFloat != null ? d.freeFloat + '%' : '—')}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn sm primary" data-pick="${esc(d.symbol)}">＋ Add to My Picks</button>
           <a class="btn sm ghost" href="${esc(d.edgeUrl)}" target="_blank" rel="noopener">PSE Edge page ↗</a>
         </div>`;
     }
