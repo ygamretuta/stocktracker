@@ -339,7 +339,7 @@ paintStatus();
 market.subscribe((m) => {
   updatedEl.textContent = m.error && !m.updatedAt
     ? `Can't load prices: ${m.error}`
-    : `Prices updated ${m.updatedAt?.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }) ?? '…'}${m.error ? ' · retrying' : ''}`;
+    : `Prices updated ${m.updatedAt?.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit' }) ?? '…'}${m.error ? ' · retrying' : ''}`;
 
   if (m.stocks.length !== datalistCount) {
     datalistCount = m.stocks.length;

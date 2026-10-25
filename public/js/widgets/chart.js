@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { el, esc, price, chg, pct, dir, symbolInput, followToggle } from '../util.js';
+import { el, esc, price, chg, pct, dir, symbolInput, followToggle, marketStatus } from '../util.js';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y', '5Y'];
 
@@ -70,20 +70,20 @@ export default {
     }
     chart.subscribeCrosshairMove((p) => showLegend(p.time ? data.find((d) => d.time === p.time) : null));
 
-    async function load() {
+    async function load({ quiet = false } = {}) {
       const id = ++reqId;
-      legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="muted">loading…</span>`;
+      if (!quiet) legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="muted">loading…</span>`;
       try {
         const res = await api.history(config.symbol, config.range);
         if (id !== reqId) return;
         data = res.candles;
         candles.setData(data.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
         volume.setData(data.map((d) => ({ time: d.time, value: d.value, color: d.close >= d.open ? 'rgba(34,197,94,.35)' : 'rgba(240,79,79,.35)' })));
-        chart.timeScale().fitContent();
+        if (!quiet) chart.timeScale().fitContent();
         if (!data.length) legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="muted">no trades in this period</span>`;
         else showLegend();
       } catch (e) {
-        if (id === reqId) legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="w-error">${esc(e.message)}</span>`;
+        if (id === reqId && !quiet) legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="w-error">${esc(e.message)}</span>`;
       }
     }
 
@@ -99,6 +99,7 @@ export default {
 
     paint();
     load();
+    const timer = setInterval(() => { if (marketStatus().open && !document.hidden) load({ quiet: true }); }, 5 * 60_000);
 
     return {
       onMarket(m) {
@@ -116,7 +117,7 @@ export default {
         showLegend();
       },
       onFocus(sym) { if (config.linked && sym !== config.symbol) setSymbol(sym); },
-      destroy() { chart.remove(); },
+      destroy() { clearInterval(timer); chart.remove(); },
     };
   },
 };

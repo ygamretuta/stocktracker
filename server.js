@@ -48,7 +48,7 @@ async function get(url, opts = {}) {
 
 // ---------- data sources ----------
 async function getStocks() {
-  return cached('stocks', 20_000, async () => {
+  return cached('stocks', 8_000, async () => {
     const data = await (await get(PHISIX)).json();
     const stocks = data.stocks.map((s) => ({
       symbol: s.symbol,
@@ -62,7 +62,7 @@ async function getStocks() {
 }
 
 async function getIndices() {
-  return cached('indices', 30_000, async () => {
+  return cached('indices', 12_000, async () => {
     const html = await (await get(`${EDGE}/index/form.do`)).text();
     return parseIndices(html);
   });

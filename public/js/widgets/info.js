@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { esc, price, chg, compact, int, symbolInput, followToggle, term, pickButton } from '../util.js';
+import { esc, price, chg, compact, int, symbolInput, followToggle, term, pickButton, marketStatus } from '../util.js';
 
 export default {
   type: 'info',
@@ -67,16 +67,16 @@ export default {
         </div>`;
     }
 
-    async function load() {
+    async function load({ quiet = false } = {}) {
       const id = ++reqId;
-      body.innerHTML = '<div class="loading">Loading…</div>';
+      if (!quiet) body.innerHTML = '<div class="loading">Loading…</div>';
       try {
         const d = await api.stock(config.symbol);
         if (id !== reqId) return;
         detail = d;
         render();
       } catch (e) {
-        if (id === reqId) body.innerHTML = `<div class="w-error">${esc(e.message)}</div>`;
+        if (id === reqId && !quiet) body.innerHTML = `<div class="w-error">${esc(e.message)}</div>`;
       }
     }
 
@@ -91,10 +91,13 @@ export default {
 
     paint();
     load();
+    // Day high/low, volume and value traded come from PSE Edge, so re-read them while the market is trading.
+    const timer = setInterval(() => { if (marketStatus().open && !document.hidden) load({ quiet: true }); }, 60_000);
 
     return {
       onMarket(m) { market = m; live = m.bySymbol.get(config.symbol) || null; render(); },
       onPositions() { render(); },
+      destroy() { clearInterval(timer); },
       onFocus(sym) { if (config.linked && sym !== config.symbol) setSymbol(sym); },
     };
   },

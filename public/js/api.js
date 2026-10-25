@@ -1,3 +1,5 @@
+import { marketStatus } from './util.js';
+
 // Server calls + one shared market feed that every widget subscribes to.
 
 async function json(url, opts) {
@@ -18,8 +20,11 @@ export const api = {
   saveState: (state) => json('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) }),
 };
 
-const STOCKS_EVERY = 30_000;
-const INDICES_EVERY = 60_000;
+// Poll quickly while the market is open and once a minute when it is closed (so the open
+// and the end of the lunch recess are noticed within a minute).
+// (Holidays aren't detected, so a holiday just polls at the open-market rate.)
+export const pollEvery = { stocks: [10_000, 60_000], indices: [15_000, 60_000] };
+export const pollMs = (kind, now = new Date()) => pollEvery[kind][marketStatus(now).open ? 0 : 1];
 
 export const market = {
   stocks: [],
@@ -65,9 +70,24 @@ export const market = {
 
   refresh() { return Promise.all([this.refreshStocks(), this.refreshIndices()]); },
 
+  // Each feed reschedules itself, so a slow request never overlaps the next one.
   start() {
-    this.refresh();
-    setInterval(() => this.refreshStocks(), STOCKS_EVERY);
-    setInterval(() => this.refreshIndices(), INDICES_EVERY);
+    const loop = (kind, refresh) => {
+      const run = async () => {
+        clearTimeout(this.timers[kind]);
+        await refresh();
+        this.timers[kind] = setTimeout(run, pollMs(kind));
+      };
+      this[`wake_${kind}`] = run;
+      run();
+    };
+    this.timers = {};
+    loop('stocks', () => this.refreshStocks());
+    loop('indices', () => this.refreshIndices());
+    // Browsers pause timers in background tabs, so catch up the moment the tab is back.
+    const wake = () => { if (!document.hidden) { this.wake_stocks(); this.wake_indices(); } };
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('online', wake);
+    window.addEventListener('focus', wake);
   },
 };

@@ -8,6 +8,16 @@ let chart = null;
 let opener = null;
 let current = null;
 
+// Keep the header price moving while the modal is open.
+market.subscribe((mk) => {
+  const q = current && mk.bySymbol.get(current);
+  if (!q || root.hidden) return;
+  const p = root.querySelector('[data-price]');
+  const c = root.querySelector('[data-chg]');
+  if (p) p.textContent = price(q.price);
+  if (c) c.innerHTML = chg(q.change);
+});
+
 function close() {
   root.hidden = true;
   root.innerHTML = '';
