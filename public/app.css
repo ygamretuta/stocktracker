@@ -175,7 +175,19 @@ body.editing .w-remove { display: inline-flex; }
 .w-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; container-type: inline-size; }
 .w-body.flush { padding: 0; }
 .w-error { color: var(--down); font-size: 13px; }
-.loading { color: var(--muted); padding: 8px 0; }
+.loading { color: var(--muted); padding: 8px 0; display: flex; align-items: center; gap: 10px; }
+.spinner {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 2px solid var(--border-strong); border-top-color: var(--accent); animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.modal-chart .loading { height: 100%; justify-content: center; }
+.modal-progress { height: 2px; background: var(--border); overflow: hidden; position: relative; flex: none; }
+.modal-progress::after {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 35%; background: var(--accent); animation: slide 1.1s ease-in-out infinite;
+}
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .spinner, .modal-progress::after { animation-duration: 3s; } }
 .hint { color: var(--faint); font-size: 12px; padding: 8px 12px; }
 
 /* Resize corner: a visible diagonal grip in the bottom-right of each widget. */

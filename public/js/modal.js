@@ -30,6 +30,7 @@ function close() {
   opener = null;
 }
 
+const spinner = (label) => `<div class="loading" role="status"><span class="spinner" aria-hidden="true"></span>${label}</div>`;
 const stat = (k, v) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
 const failed = (what, e) => `<div class="w-error">Couldn't load ${what}: ${esc(e?.message || 'unknown error')}</div>`;
 
@@ -120,11 +121,12 @@ export function openStock(sym, app, from = document.activeElement) {
         <div class="modal-price"><b data-price>${price(s?.price)}</b> <span data-chg>${s ? chg(s.change) : ''}</span></div>
         <button class="icon-btn" data-close aria-label="Close" title="Close (Esc)">✕</button>
       </header>
+      <div class="modal-progress" data-progress aria-hidden="true"></div>
       <div class="modal-body">
-        <section><div class="modal-chart" data-chart><div class="loading">Loading chart…</div></div></section>
-        <section><h3>Key facts</h3><div data-facts><div class="loading">Loading…</div></div></section>
-        <section><h3>About the company</h3><div data-company><div class="loading">Loading…</div></div></section>
-        <section><h3>Recent news &amp; announcements</h3><div data-news><div class="loading">Loading…</div></div></section>
+        <section><div class="modal-chart" data-chart>${spinner('Loading chart…')}</div></section>
+        <section><h3>Key facts</h3><div data-facts>${spinner('Loading…')}</div></section>
+        <section><h3>About the company</h3><div data-company>${spinner('Loading…')}</div></section>
+        <section><h3>Recent news &amp; announcements</h3><div data-news>${spinner('Loading…')}</div></section>
       </div>
       <footer class="modal-foot">
         <span data-pickslot></span>
@@ -141,30 +143,34 @@ export function openStock(sym, app, from = document.activeElement) {
   const fill = (q, html) => { if (id === reqId) $(q).innerHTML = html; };
   const live = () => market.bySymbol.get(sym);
 
-  api.stock(sym).then((d) => {
+  const jobs = [];
+  jobs.push(api.stock(sym).then((d) => {
     if (id !== reqId) return;
     if (d.company) $('[data-name]').textContent = d.company;
     $('[data-edge]').href = d.edgeUrl;
     $('[data-edge]').hidden = false;
     $('[data-price]').textContent = price(live()?.price ?? d.last ?? d.prevClose);
     fill('[data-facts]', renderFacts(d, live()));
-  }).catch((e) => fill('[data-facts]', failed('key facts', e)));
+  }).catch((e) => fill('[data-facts]', failed('key facts', e))));
 
-  api.company(sym).then((c) => fill('[data-company]', renderCompany(c)))
-    .catch((e) => fill('[data-company]', failed('company details', e)));
+  jobs.push(api.company(sym).then((c) => fill('[data-company]', renderCompany(c)))
+    .catch((e) => fill('[data-company]', failed('company details', e))));
 
-  api.history(sym, '6M').then(({ candles }) => {
+  jobs.push(api.history(sym, '6M').then(({ candles }) => {
     if (id !== reqId) return;
     if (!candles.length) { $('[data-chart]').innerHTML = '<div class="muted small">No price history.</div>'; return; }
     $('[data-chart]').innerHTML = '';
     drawChart($('[data-chart]'), candles);
-  }).catch((e) => fill('[data-chart]', failed('the chart', e)));
+  }).catch((e) => fill('[data-chart]', failed('the chart', e))));
 
-  api.news().then((n) => {
+  jobs.push(api.news().then((n) => {
     const items = [...n.disclosures, ...n.news].filter((x) => x.symbols?.includes(sym))
       .sort((a, b) => (b.published || '').localeCompare(a.published || '')).slice(0, 6);
     fill('[data-news]', renderNews(items));
-  }).catch((e) => fill('[data-news]', failed('news', e)));
+  }).catch((e) => fill('[data-news]', failed('news', e))));
+
+  // The progress bar under the header runs until every section has settled.
+  Promise.allSettled(jobs).then(() => { if (id === reqId) $('[data-progress]')?.remove(); });
 }
 
 root.addEventListener('click', (e) => {
