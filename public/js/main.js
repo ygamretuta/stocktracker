@@ -11,8 +11,9 @@ import movers from './widgets/movers.js';
 import breadth from './widgets/breadth.js';
 import invest from './widgets/invest.js';
 import news from './widgets/news.js';
+import suggested from './widgets/suggested.js';
 
-const REGISTRY = Object.fromEntries([invest, chart, info, watchlist, movers, overview, news, breadth].map((w) => [w.type, w]));
+const REGISTRY = Object.fromEntries([invest, chart, info, watchlist, movers, overview, news, suggested, breadth].map((w) => [w.type, w]));
 
 const DEFAULT_LAYOUT = [
   { type: 'invest', x: 0, y: 0, w: 6, h: 9 },
@@ -22,6 +23,7 @@ const DEFAULT_LAYOUT = [
   { type: 'movers', x: 6, y: 9, w: 3, h: 8 },
   { type: 'overview', x: 9, y: 9, w: 3, h: 8 },
   { type: 'news', x: 0, y: 17, w: 6, h: 9 },
+  { type: 'suggested', x: 6, y: 17, w: 6, h: 9 },
 ];
 
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -39,6 +41,8 @@ const app = {
     for (const { instance } of live.values()) instance.onFocus?.(sym);
   },
   resolveSymbol,
+  priceOf: (sym) => market.bySymbol.get(sym)?.price ?? null,
+  nameOf: (sym) => market.bySymbol.get(sym)?.name || '',
   // Click on a stock anywhere: point the chart/info widgets at it and open its detail modal.
   show(sym, from) { app.focus(sym); openStock(sym, app, from); },
   getPositions: () => state.positions,

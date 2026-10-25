@@ -13,6 +13,7 @@ export const api = {
   stocks: () => json('/api/stocks'),
   indices: () => json('/api/indices'),
   news: () => json('/api/news'),
+  performance: () => json('/api/performance'),
   stock: (sym) => json(`/api/stock/${encodeURIComponent(sym)}`),
   company: (sym) => json(`/api/company/${encodeURIComponent(sym)}`),
   history: (sym, range) => json(`/api/history/${encodeURIComponent(sym)}?range=${range}`),

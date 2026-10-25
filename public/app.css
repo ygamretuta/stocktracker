@@ -295,6 +295,8 @@ table.t tr.selected td { background: var(--accent-soft); }
 details.fees summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 details.fees .fee-grid { display: grid; grid-template-columns: 1fr 80px; gap: 4px 8px; margin-top: 6px; align-items: center; font-size: 12px; }
 details.fees .field { width: 80px; padding: 3px 6px; font-size: 12px; }
+h4.sub { margin: 12px 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+h4.sub:first-child { margin-top: 0; }
 .disclaimer { color: var(--faint); font-size: 11px; margin: 8px 0 0; }
 .empty-picks { color: var(--muted); font-size: 13px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: 8px; }
 

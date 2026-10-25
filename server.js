@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { getNews } from './news.js';
 import { parseCompanyProfile, parseIndices, findSecurityId, parseStockDetail, normaliseCandles } from './parsers.js';
 import { validateState } from './state.js';
+import { pickCandidates, windowReturns } from './performance.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 5173;
@@ -134,6 +135,52 @@ async function getHistory(symbol, range) {
   });
 }
 
+// ---------- performance ranking ----------
+// Fetching history for dozens of stocks takes a while, so it runs in the background and the
+// widget polls for progress. Results are kept for an hour.
+const PERF_TTL = 3_600_000;
+const perf = { state: 'idle', at: 0, done: 0, total: 0, results: [], error: null };
+
+async function runPerformance() {
+  perf.state = 'running';
+  perf.done = 0;
+  perf.error = null;
+  try {
+    const { stocks } = await getStocks();
+    const symbols = pickCandidates(stocks);
+    perf.total = symbols.length;
+    const results = [];
+    const queue = [...symbols];
+    const worker = async () => {
+      while (queue.length) {
+        const symbol = queue.shift();
+        try {
+          const { candles } = await getHistory(symbol, '6M');
+          const r = windowReturns(candles);
+          const s = stocks.find((x) => x.symbol === symbol);
+          if (r) results.push({ symbol, name: s?.name || symbol, ...r });
+        } catch (err) {
+          console.error('performance', symbol, err.message);
+        }
+        perf.done++;
+      }
+    };
+    await Promise.all(Array.from({ length: 5 }, worker));
+    perf.results = results;
+    perf.at = Date.now();
+    perf.state = results.length ? 'ready' : 'idle';
+    if (!results.length) perf.error = 'No price history could be loaded';
+  } catch (err) {
+    perf.state = 'idle';
+    perf.error = err.message;
+  }
+}
+
+function performanceSnapshot() {
+  if (perf.state !== 'running' && Date.now() - perf.at > PERF_TTL) runPerformance();
+  return { state: perf.state, done: perf.done, total: perf.total, results: perf.state === 'running' && !perf.results.length ? [] : perf.results, asOf: perf.at ? new Date(perf.at).toISOString() : null, error: perf.error };
+}
+
 // ---------- state ----------
 async function readState() {
   try { return JSON.parse(await fs.readFile(STATE_FILE, 'utf8')); } catch { return null; }
@@ -198,6 +245,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (p === '/api/stocks') return send(res, 200, await getStocks());
     if (p === '/api/indices') return send(res, 200, await getIndices());
+    if (p === '/api/performance') return send(res, 200, performanceSnapshot());
     if (p === '/api/news') return send(res, 200, await cached('news', 5 * 60_000, () => getNews(getStocks)));
     let m;
     if ((m = p.match(/^\/api\/stock\/([^/]+)$/))) {
