@@ -1,5 +1,6 @@
-import { api } from '../api.js';
-import { esc, price, chg, compact, int, symbolInput, followToggle, term, pickButton, marketStatus } from '../util.js';
+import { api } from '../api.ts';
+import { hit, esc, price, chg, compact, int, symbolInput, followToggle, term, pickButton, marketStatus, errText } from '../util.ts';
+import type { MarketState, Stock, StockDetail, WidgetDef } from '../types.ts';
 
 export default {
   type: 'info',
@@ -14,24 +15,25 @@ export default {
     const input = symbolInput(config.symbol, (sym) => setSymbol(sym));
     tools.prepend(input, followToggle(config, save));
 
-    let detail = null;
-    let live = null;
-    let market = null;
+    let detail: StockDetail | null = null;
+    let live: Stock | null = null;
+    let market: MarketState | null = null;
     let reqId = 0;
 
     const paint = () => setTitle(`Info · ${config.symbol}`);
 
     body.addEventListener('click', (e) => {
-      const pick = e.target.closest('[data-pick]');
-      if (pick) app.addPick(pick.dataset.pick);
+      const pick = hit(e, '[data-pick]');
+      if (pick) app.addPick(pick.dataset.pick!);
     });
 
     function render() {
       if (!detail) return;
       const d = detail;
       const last = live?.price ?? d.last ?? d.prevClose;
-      const pos = d.week52High > d.week52Low ? ((last - d.week52Low) / (d.week52High - d.week52Low)) * 100 : null;
-      const stat = (k, v) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+      const { week52High: hi, week52Low: lo } = d;
+      const pos = hi != null && lo != null && last != null && hi > lo ? ((last - lo) / (hi - lo)) * 100 : null;
+      const stat = (k: string, v: string | number): string => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
       body.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
           <div style="min-width:0">
@@ -76,11 +78,11 @@ export default {
         detail = d;
         render();
       } catch (e) {
-        if (id === reqId && !quiet) body.innerHTML = `<div class="w-error">${esc(e.message)}</div>`;
+        if (id === reqId && !quiet) body.innerHTML = `<div class="w-error">${esc(errText(e))}</div>`;
       }
     }
 
-    function setSymbol(sym) {
+    function setSymbol(sym: string) {
       config.symbol = sym;
       input.value = sym;
       live = market?.bySymbol.get(sym) || null;
@@ -101,4 +103,4 @@ export default {
       onFocus(sym) { if (config.linked && sym !== config.symbol) setSymbol(sym); },
     };
   },
-};
+} satisfies WidgetDef;

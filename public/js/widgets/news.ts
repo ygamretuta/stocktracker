@@ -1,10 +1,11 @@
-import { api } from '../api.js';
-import { el, esc } from '../util.js';
+import { api } from '../api.ts';
+import { hit, el, esc, must, errText } from '../util.ts';
+import type { NewsFeed, WidgetDef } from '../types.ts';
 
 const REFRESH_EVERY = 5 * 60_000;
 const TABS = { news: 'Market news', disclosures: 'Company announcements' };
 
-function ago(iso) {
+function ago(iso: string | null): string {
   if (!iso) return '';
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
   if (mins < 1) return 'just now';
@@ -24,12 +25,13 @@ export default {
   defaults: { tab: 'news', mineOnly: false },
 
   mount({ body, tools, config, save, app }) {
-    let data = null;
-    let error = null;
+    let data: NewsFeed | null = null;
+    let error: string | null = null;
 
-    const tabs = el(`<div class="tabs" role="tablist">${Object.entries(TABS).map(([k, t]) => `<button role="tab" data-tab="${k}">${t}</button>`).join('')}</div>`);
-    const mine = el('<label class="follow" title="Show only news about your watchlist, your picks, and the stock you\'re viewing"><input type="checkbox"> My stocks only</label>');
-    mine.querySelector('input').checked = config.mineOnly;
+    const tabs = el<HTMLDivElement>(`<div class="tabs" role="tablist">${Object.entries(TABS).map(([k, t]) => `<button role="tab" data-tab="${k}">${t}</button>`).join('')}</div>`);
+    const mine = el<HTMLLabelElement>('<label class="follow" title="Show only news about your watchlist, your picks, and the stock you\'re viewing"><input type="checkbox"> My stocks only</label>');
+    const mineBox = must<HTMLInputElement>(mine, 'input');
+    mineBox.checked = config.mineOnly;
     tools.prepend(tabs, mine);
 
     const paintTabs = () => tabs.querySelectorAll('button').forEach((b) => {
@@ -37,20 +39,20 @@ export default {
       b.setAttribute('aria-selected', String(b.dataset.tab === config.tab));
     });
     tabs.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-tab]');
+      const b = hit(e, '[data-tab]');
       if (!b) return;
       config.tab = b.dataset.tab;
       save();
       paintTabs();
       render();
     });
-    mine.querySelector('input').addEventListener('change', (e) => { config.mineOnly = e.target.checked; save(); render(); });
+    mineBox.addEventListener('change', () => { config.mineOnly = mineBox.checked; save(); render(); });
     paintTabs();
 
     body.classList.add('flush');
     body.addEventListener('click', (e) => {
-      const chip = e.target.closest('[data-sym]');
-      if (chip) { e.preventDefault(); app.show(chip.dataset.sym, chip); }
+      const chip = hit(e, '[data-sym]');
+      if (chip) { e.preventDefault(); app.show(chip.dataset.sym!, chip); }
     });
 
     function render() {
@@ -84,7 +86,7 @@ export default {
         data = await api.news();
         error = null;
       } catch (e) {
-        error = e.message;
+        error = errText(e);
       }
       render();
     }
@@ -100,4 +102,4 @@ export default {
       destroy() { clearInterval(timer); },
     };
   },
-};
+} satisfies WidgetDef;

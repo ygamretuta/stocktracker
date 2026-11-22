@@ -1,5 +1,6 @@
-import { api } from '../api.js';
-import { el, esc, price, chg, pct, dir, symbolInput, followToggle, marketStatus } from '../util.js';
+import { api } from '../api.ts';
+import { must, errText, hit, el, esc, price, chg, pct, dir, symbolInput, followToggle, marketStatus } from '../util.ts';
+import type { Candle, MarketState, Stock, WidgetDef } from '../types.ts';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y', '5Y'];
 
@@ -16,11 +17,11 @@ export default {
     const LC = window.LightweightCharts;
     body.classList.add('flush');
     body.innerHTML = '<div class="chart-wrap"><div class="chart-legend"></div></div>';
-    const wrap = body.firstElementChild;
-    const legend = wrap.querySelector('.chart-legend');
+    const wrap = must(body, '.chart-wrap');
+    const legend = must(wrap, '.chart-legend');
 
     const input = symbolInput(config.symbol, (sym) => setSymbol(sym));
-    const ranges = el(`<div class="tabs" title="Time range">${RANGES.map((r) => `<button data-r="${r}">${r}</button>`).join('')}</div>`);
+    const ranges = el<HTMLDivElement>(`<div class="tabs" title="Time range">${RANGES.map((r) => `<button data-r="${r}">${r}</button>`).join('')}</div>`);
     tools.prepend(input, ranges, followToggle(config, save));
 
     const paint = () => {
@@ -28,7 +29,7 @@ export default {
       setTitle(`Chart · ${config.symbol}`);
     };
     ranges.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-r]');
+      const b = hit(e, '[data-r]');
       if (!b) return;
       config.range = b.dataset.r;
       save();
@@ -52,11 +53,11 @@ export default {
     volume.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
     candles.priceScale().applyOptions({ scaleMargins: { top: 0.16, bottom: 0.2 } });
 
-    let data = [];
-    let live = null;
+    let data: Candle[] = [];
+    let live: Stock | null = null;
     let reqId = 0;
 
-    function showLegend(c) {
+    function showLegend(c?: Candle | null) {
       if (c) {
         legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="muted">${c.time}</span>
           Open ${price(c.open)} · High ${price(c.high)} · Low ${price(c.low)} · Close ${price(c.close)}`;
@@ -83,12 +84,12 @@ export default {
         if (!data.length) legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="muted">no trades in this period</span>`;
         else showLegend();
       } catch (e) {
-        if (id === reqId && !quiet) legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="w-error">${esc(e.message)}</span>`;
+        if (id === reqId && !quiet) legend.innerHTML = `<b>${esc(config.symbol)}</b> <span class="w-error">${esc(errText(e))}</span>`;
       }
     }
 
-    let market = null;
-    function setSymbol(sym) {
+    let market: MarketState | null = null;
+    function setSymbol(sym: string) {
       config.symbol = sym;
       input.value = sym;
       live = market?.bySymbol.get(sym) || null;
@@ -120,4 +121,4 @@ export default {
       destroy() { clearInterval(timer); chart.remove(); },
     };
   },
-};
+} satisfies WidgetDef;

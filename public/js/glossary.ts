@@ -1,5 +1,5 @@
 // Plain-language definitions shown when someone clicks a dotted term.
-export const GLOSSARY = {
+export const GLOSSARY: Record<string, string> = {
   psei: 'The PSE index: one number that tracks the 30 biggest companies on the Philippine Stock Exchange. When people say "the market is up", they usually mean the PSEi.',
   sectors: 'Indices that track groups of companies in the same industry, such as banks (Financials) or real estate (Property).',
   'value-traded': 'The total peso amount of shares that changed hands. More value traded means more people were actively buying and selling.',

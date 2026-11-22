@@ -1,4 +1,5 @@
-import { esc, el, price, chg, compact, toast, pickButton } from '../util.js';
+import { hit, esc, el, price, chg, compact, toast, pickButton } from '../util.ts';
+import type { MarketState, WidgetDef } from '../types.ts';
 
 export default {
   type: 'watchlist',
@@ -10,9 +11,9 @@ export default {
   defaults: { symbols: ['JFC', 'SM', 'BDO', 'ALI', 'AC', 'TEL', 'ICT', 'MER'] },
 
   mount({ body, tools, config, save, app }) {
-    let last = null;
-    const form = el('<form class="inline-form"></form>');
-    const input = el('<input class="field sym-input" list="symbols" placeholder="e.g. JFC" aria-label="Stock to add" spellcheck="false" autocomplete="off">');
+    let last: MarketState | null = null;
+    const form = el<HTMLFormElement>('<form class="inline-form"></form>');
+    const input = el<HTMLInputElement>('<input class="field sym-input" list="symbols" placeholder="e.g. JFC" aria-label="Stock to add" spellcheck="false" autocomplete="off">');
     const addBtn = el('<button class="btn sm primary" type="submit">Add</button>');
     form.append(input, addBtn);
     tools.prepend(form);
@@ -30,20 +31,20 @@ export default {
 
     body.classList.add('flush');
     body.addEventListener('click', (e) => {
-      const pick = e.target.closest('[data-pick]');
-      if (pick) { app.addPick(pick.dataset.pick); return; }
-      const rm = e.target.closest('[data-remove]');
+      const pick = hit(e, '[data-pick]');
+      if (pick) { app.addPick(pick.dataset.pick!); return; }
+      const rm = hit(e, '[data-remove]');
       if (rm) {
         const sym = rm.dataset.remove;
         const at = config.symbols.indexOf(sym);
-        config.symbols = config.symbols.filter((s) => s !== sym);
+        config.symbols = config.symbols.filter((s: string) => s !== sym);
         save();
         render();
         toast(`Removed ${sym} from your watchlist`, { action: 'Undo', onAction: () => { config.symbols.splice(at, 0, sym); save(); render(); } });
         return;
       }
-      const row = e.target.closest('[data-sym]');
-      if (row) app.show(row.dataset.sym, row);
+      const row = hit(e, '[data-sym]');
+      if (row) app.show(row.dataset.sym!, row);
     });
 
     function render() {
@@ -54,8 +55,8 @@ export default {
       }
       body.innerHTML = `<table class="t">
         <thead><tr><th>Stock</th><th class="num">Price</th><th class="num">Today</th><th class="num hide-sm">Volume</th><th></th><th></th></tr></thead>
-        <tbody>${config.symbols.map((sym) => {
-          const s = last.bySymbol.get(sym);
+        <tbody>${config.symbols.map((sym: string) => {
+          const s = last?.bySymbol.get(sym);
           return `<tr class="click${app.focused === sym ? ' selected' : ''}" data-sym="${esc(sym)}" title="Click to view ${esc(sym)}">
             <td><div class="sym">${esc(sym)}</div><div class="name">${esc(s?.name || 'No trades today')}</div></td>
             <td class="num">${price(s?.price)}</td>
@@ -70,4 +71,4 @@ export default {
 
     return { onMarket(m) { last = m; render(); }, onFocus() { render(); }, onPositions() { render(); } };
   },
-};
+} satisfies WidgetDef;

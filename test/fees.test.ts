@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_FEES, boardLot, fees, plan, netSell, breakEven } from '../public/js/fees.js';
+import { DEFAULT_FEES, boardLot, fees, plan, netSell, breakEven } from '../public/js/fees.ts';
 
 test('boardLot follows the PSE price bands', () => {
   assert.equal(boardLot(1000), 5);
@@ -30,6 +30,7 @@ test('custodial fee is not part of per-trade fees', () => {
 
 test('plan buys whole lots and never exceeds the budget', () => {
   const r = plan(10000, 12.5, 100, DEFAULT_FEES);
+  assert.ok(r);
   assert.equal(r.shares % 100, 0);
   assert.ok(r.shares > 0);
   assert.ok(r.total <= 10000);
@@ -38,8 +39,9 @@ test('plan buys whole lots and never exceeds the budget', () => {
 
 test('plan reports the one-lot cost when the budget is too small', () => {
   const r = plan(100, 500, 10, DEFAULT_FEES);
+  assert.ok(r);
   assert.equal(r.shares, 0);
-  assert.ok(r.oneLot > 5000);
+  assert.ok(r.oneLot && r.oneLot > 5000);
 });
 
 test('plan rejects invalid input', () => {
@@ -49,8 +51,9 @@ test('plan rejects invalid input', () => {
 
 test('breakEven sells for exactly what was paid', () => {
   const r = plan(10000, 12.5, 100, DEFAULT_FEES);
+  assert.ok(r);
   const be = breakEven(r.shares, r.total, DEFAULT_FEES);
-  assert.ok(be > 12.5);
+  assert.ok(be !== null && be > 12.5);
   assert.ok(Math.abs(netSell(r.shares, be, DEFAULT_FEES) - r.total) < 1e-6);
   assert.equal(breakEven(0, 0, DEFAULT_FEES), null);
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pollMs, pollEvery } from '../public/js/api.js';
+import { pollMs, pollEvery } from '../public/js/api.ts';
 
 // Manila is UTC+8: 10:00 PHT = 02:00Z.
 test('polls fast while the market is open', () => {

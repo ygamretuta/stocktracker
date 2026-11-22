@@ -1,4 +1,5 @@
-import { compact, term } from '../util.js';
+import { compact, term } from '../util.ts';
+import type { WidgetDef } from '../types.ts';
 
 export default {
   type: 'breadth',
@@ -37,4 +38,4 @@ export default {
       },
     };
   },
-};
+} satisfies WidgetDef;

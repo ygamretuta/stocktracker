@@ -3,11 +3,15 @@
   "version": "1.0.0",
   "description": "Local PSE stock dashboard",
   "scripts": {
-    "start": "node server.js",
-    "start:lan": "HOST=0.0.0.0 node server.js",
-    "test": "node --test test/",
-    "lint": "eslint .",
-    "check": "npm run lint && npm test"
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
+    "start": "npm run build && node server.ts",
+    "start:lan": "npm run build && HOST=0.0.0.0 node server.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test",
+    "build:api": "tsc -p tsconfig.api.json",
+    "build:vercel": "npm run build && npm run build:api && node scripts/assemble.mjs"
   },
   "license": "ISC",
   "type": "module",
@@ -17,10 +21,10 @@
   },
   "private": true,
   "engines": {
-    "node": ">=18.17"
+    "node": ">=22.18"
   },
   "devDependencies": {
-    "eslint": "^9.39.5",
-    "globals": "^17.13.0"
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
   }
 }

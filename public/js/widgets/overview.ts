@@ -1,4 +1,5 @@
-import { esc, price, chg, dir, pct, term } from '../util.js';
+import { esc, price, chg, dir, pct, term } from '../util.ts';
+import type { WidgetDef } from '../types.ts';
 
 export default {
   type: 'overview',
@@ -33,4 +34,4 @@ export default {
       },
     };
   },
-};
+} satisfies WidgetDef;

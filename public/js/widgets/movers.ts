@@ -1,6 +1,7 @@
-import { esc, el, price, chg, compact, pickButton } from '../util.js';
+import { hit, esc, el, price, chg, compact, pickButton } from '../util.ts';
+import type { MarketState, Stock, WidgetDef } from '../types.ts';
 
-const TABS = {
+const TABS: Record<string, { label: string; sort: (a: Stock, b: Stock) => number }> = {
   gainers: { label: 'Up most', sort: (a, b) => b.change - a.change },
   losers: { label: 'Down most', sort: (a, b) => a.change - b.change },
   active: { label: 'Most traded', sort: (a, b) => b.price * b.volume - a.price * a.volume },
@@ -16,15 +17,15 @@ export default {
   defaults: { tab: 'gainers', count: 15 },
 
   mount({ body, tools, config, save, app }) {
-    let last = null;
+    let last: MarketState | null = null;
     const tabs = el(`<div class="tabs" role="tablist">${Object.entries(TABS).map(([k, t]) => `<button role="tab" data-tab="${k}">${t.label}</button>`).join('')}</div>`);
     tools.prepend(tabs);
     const paintTabs = () => tabs.querySelectorAll('button').forEach((b) => {
       b.classList.toggle('on', b.dataset.tab === config.tab);
-      b.setAttribute('aria-selected', b.dataset.tab === config.tab);
+      b.setAttribute('aria-selected', String(b.dataset.tab === config.tab));
     });
     tabs.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-tab]');
+      const b = hit(e, '[data-tab]');
       if (!b) return;
       config.tab = b.dataset.tab;
       save();
@@ -35,10 +36,10 @@ export default {
 
     body.classList.add('flush');
     body.addEventListener('click', (e) => {
-      const pick = e.target.closest('[data-pick]');
-      if (pick) { app.addPick(pick.dataset.pick); return; }
-      const row = e.target.closest('[data-sym]');
-      if (row) app.show(row.dataset.sym, row);
+      const pick = hit(e, '[data-pick]');
+      if (pick) { app.addPick(pick.dataset.pick!); return; }
+      const row = hit(e, '[data-sym]');
+      if (row) app.show(row.dataset.sym!, row);
     });
 
     function render() {
@@ -58,4 +59,4 @@ export default {
 
     return { onMarket(m) { last = m; render(); }, onFocus() { render(); }, onPositions() { render(); } };
   },
-};
+} satisfies WidgetDef;

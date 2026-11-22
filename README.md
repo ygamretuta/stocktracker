@@ -12,17 +12,37 @@ npm start
 Open http://localhost:5173.
 
 To open it to other devices on your home Wi-Fi (phone, tablet), run `npm run start:lan` and visit `http://<your-mac's-ip>:5173`.
-It is not meant to be deployed to the internet.
+The local server is for your own machine. For a public copy, see Deploying below.
 
 ## Development
 
+Written in TypeScript 7 (the native `tsc`), with strict type checking.
+
 ```bash
-npm test        # fee math, PSE Edge parsers, state validation
-npm run lint    # eslint
-npm run check   # both
+npm run typecheck   # tsc --noEmit over the server, browser code and tests
+npm test            # fee math, PSE Edge parsers, state validation, ranking, polling
+npm run check       # both
+npm run build:watch # recompile the browser code on save
 ```
 
-There is no build step; the browser loads the files in `public/` directly. Requires Node 18.17+.
+- The server (`server.ts`, `news.ts`, ...) runs directly on Node's built-in TypeScript support, so there is no server build step. Requires Node 22.18+.
+- The browser code in `public/js/` is compiled to `dist/js/` by `npm run build`, which `npm start` runs for you.
+- Type-aware ESLint isn't set up: typescript-eslint doesn't support TypeScript 7 yet. `npm run typecheck` also flags unused variables and parameters.
+
+## Deploying to Vercel
+
+`vercel.json` builds the static site into `dist/public` and serves the API (`handler.ts`) as one serverless function in the Singapore region, close to the PSE.
+
+```bash
+vercel --prod
+```
+
+Differences from running locally:
+
+- **Layout and picks are saved in each visitor's browser** (localStorage), not on a server, so every visitor has their own dashboard.
+- **API responses are cached by Vercel's CDN** (8 seconds for prices up to an hour for rankings), so many visitors share one fetch to the free data sources.
+- **Suggested Picks** ranks 30 stocks instead of 40, and the first request after the cache expires waits for the ranking to build.
+- The data sources are unofficial. If one blocks the host's IP addresses, that part of the dashboard shows an error.
 
 ## Using the dashboard
 

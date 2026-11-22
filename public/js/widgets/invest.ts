@@ -1,6 +1,7 @@
-import { api } from '../api.js';
-import { esc, price, peso, signedPeso, int, pct, dir, chg, symbolInput, term, toast } from '../util.js';
-import { DEFAULT_FEES, boardLot, plan, netSell, breakEven } from '../fees.js';
+import { api } from '../api.ts';
+import { must, hit, esc, price, peso, signedPeso, int, pct, dir, chg, symbolInput, term, toast } from '../util.ts';
+import { DEFAULT_FEES, boardLot, plan, netSell, breakEven } from '../fees.ts';
+import type { MarketState, StockDetail, WidgetDef } from '../types.ts';
 
 export default {
   type: 'invest',
@@ -13,9 +14,9 @@ export default {
 
   mount({ body, config, save, app }) {
     config.fees = { ...DEFAULT_FEES, ...config.fees };
-    let market = null;
-    let detail = null;
-    let customPrice = null;
+    let market: MarketState | null = null;
+    let detail: StockDetail | null = null;
+    let customPrice: number | null = null;
 
     body.innerHTML = `
       <div class="invest">
@@ -59,19 +60,20 @@ export default {
         </div>
       </div>`;
 
-    const $ = (s) => body.querySelector(s);
-    const amountIn = $('[data-in="amount"]');
-    const priceIn = $('[data-in="price"]');
+    const $ = <T extends HTMLElement = HTMLElement>(s: string): T => must<T>(body, s);
+    const amountIn = $<HTMLInputElement>('[data-in="amount"]');
+    const priceIn = $<HTMLInputElement>('[data-in="price"]');
+    const feeInputs = body.querySelectorAll<HTMLInputElement>('[data-fee]');
     const symIn = symbolInput(config.symbol, (sym) => setSymbol(sym), { placeholder: 'Type a symbol or company, e.g. JFC', label: 'Stock to buy' });
     symIn.style.width = '100%';
     symIn.style.textTransform = 'none';
     $('[data-slot="sym"]').replaceWith(symIn);
     amountIn.value = config.amount;
-    body.querySelectorAll('[data-fee]').forEach((i) => { i.value = config.fees[i.dataset.fee]; });
+    feeInputs.forEach((i) => { i.value = config.fees[i.dataset.fee!]; });
 
     const livePrice = () => market?.bySymbol.get(config.symbol)?.price ?? detail?.last ?? detail?.prevClose ?? null;
     const buyPrice = () => customPrice ?? livePrice();
-    const lotFor = (p) => (detail?.symbol === config.symbol && detail.boardLot) || boardLot(p);
+    const lotFor = (p: number): number => (detail && detail.symbol === config.symbol && detail.boardLot) || boardLot(p);
     const current = () => {
       const p = buyPrice();
       return p ? plan(Number(config.amount), p, lotFor(p), config.fees) : null;
@@ -87,7 +89,7 @@ export default {
       renderPlan();
     }
 
-    function setSymbol(sym) {
+    function setSymbol(sym: string) {
       config.symbol = sym;
       symIn.value = sym;
       customPrice = null;
@@ -105,7 +107,7 @@ export default {
         : esc(name) || '&nbsp;';
       const p = buyPrice();
       const out = $('[data-out="calc"]');
-      const addBtn = $('[data-act="add"]');
+      const addBtn = $<HTMLButtonElement>('[data-act="add"]');
       addBtn.disabled = true;
       const picked = app.hasPick(config.symbol);
       addBtn.textContent = picked ? '✓ Already in my picks' : '＋ Add to my picks';
@@ -118,7 +120,7 @@ export default {
         return;
       }
       addBtn.disabled = picked;
-      const be = breakEven(r.shares, r.total, config.fees);
+      const be = breakEven(r.shares, r.total, config.fees) ?? p;
       out.innerHTML = `
         <div class="headline">You can buy <b>${int(r.shares)} shares</b> of ${esc(config.symbol)} for <b>${peso(r.total)}</b>.</div>
         <div class="row"><span class="muted">${int(r.shares / lot)} × ${term('board lot', 'board-lot')} of ${int(lot)} at ₱${price(p)}</span><span>${peso(r.gross)}</span></div>
@@ -162,21 +164,21 @@ export default {
 
     amountIn.addEventListener('input', () => { config.amount = Number(amountIn.value) || 0; save(); renderPlan(); });
     priceIn.addEventListener('input', () => { customPrice = Number(priceIn.value) || null; renderPlan(); });
-    body.querySelectorAll('[data-fee]').forEach((i) => i.addEventListener('input', () => {
-      config.fees[i.dataset.fee] = Number(i.value) || 0;
+    feeInputs.forEach((i) => i.addEventListener('input', () => {
+      config.fees[i.dataset.fee!] = Number(i.value) || 0;
       save();
       renderPlan();
       renderPositions();
     }));
     body.addEventListener('click', (e) => {
-      const amt = e.target.closest('[data-amt]');
+      const amt = hit(e, '[data-amt]');
       if (amt) { config.amount = Number(amt.dataset.amt); amountIn.value = config.amount; save(); renderPlan(); return; }
-      const act = e.target.closest('[data-act]')?.dataset.act;
+      const act = hit(e, '[data-act]')?.dataset.act;
       if (act === 'add') {
         if (app.hasPick(config.symbol)) return;
         const p = buyPrice();
         const r = current();
-        if (!r?.shares) return;
+        if (!r?.shares || p == null) return;
         app.setPositions([...app.getPositions(), {
           id: Math.random().toString(36).slice(2, 10),
           symbol: config.symbol, shares: r.shares, price: p, fees: r.fee.total, total: r.total,
@@ -185,7 +187,7 @@ export default {
         toast(`Added ${int(r.shares)} ${config.symbol} shares to your picks`);
         return;
       }
-      const rm = e.target.closest('[data-remove]');
+      const rm = hit(e, '[data-remove]');
       if (rm) {
         const all = app.getPositions();
         const at = all.findIndex((x) => x.id === rm.dataset.remove);
@@ -198,8 +200,8 @@ export default {
         });
         return;
       }
-      const row = e.target.closest('[data-sym]');
-      if (row) app.show(row.dataset.sym, row);
+      const row = hit(e, '[data-sym]');
+      if (row) app.show(row.dataset.sym!, row);
     });
 
     loadDetail();
@@ -212,4 +214,4 @@ export default {
       onPlan(sym) { if (sym) setSymbol(sym); symIn.focus(); body.scrollTop = 0; },
     };
   },
-};
+} satisfies WidgetDef;

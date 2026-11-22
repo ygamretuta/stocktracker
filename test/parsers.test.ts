@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { num, text, parseIndices, findSecurityId, parseStockDetail, parseCompanyProfile, normaliseCandles } from '../parsers.js';
+import { num, text, parseIndices, findSecurityId, parseStockDetail, parseCompanyProfile, normaliseCandles } from '../parsers.ts';
 
 test('num strips formatting and rejects junk', () => {
   assert.equal(num('1,234.50'), 1234.5);

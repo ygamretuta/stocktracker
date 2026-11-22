@@ -1,19 +1,22 @@
-import { api, market } from './api.js';
-import { el, esc, price, int, peso, dir, pct, debounce, marketStatus, parseSymbol, setSymbolResolver, resolveSymbol, toast } from './util.js';
-import { GLOSSARY } from './glossary.js';
-import { openStock, syncPickButton } from './modal.js';
-import { DEFAULT_FEES, boardLot, plan } from './fees.js';
-import overview from './widgets/overview.js';
-import chart from './widgets/chart.js';
-import info from './widgets/info.js';
-import watchlist from './widgets/watchlist.js';
-import movers from './widgets/movers.js';
-import breadth from './widgets/breadth.js';
-import invest from './widgets/invest.js';
-import news from './widgets/news.js';
-import suggested from './widgets/suggested.js';
+import { api, market } from './api.ts';
+import { must, hit, el, esc, price, int, peso, dir, pct, debounce, marketStatus, parseSymbol, setSymbolResolver, resolveSymbol, toast } from './util.ts';
+import { GLOSSARY } from './glossary.ts';
+import { openStock, syncPickButton } from './modal.ts';
+import { DEFAULT_FEES, boardLot, plan } from './fees.ts';
+import overview from './widgets/overview.ts';
+import chart from './widgets/chart.ts';
+import info from './widgets/info.ts';
+import watchlist from './widgets/watchlist.ts';
+import movers from './widgets/movers.ts';
+import breadth from './widgets/breadth.ts';
+import invest from './widgets/invest.ts';
+import news from './widgets/news.ts';
+import suggested from './widgets/suggested.ts';
+import type { App, SavedState, WidgetDef, WidgetInstance, WidgetState } from './types.ts';
 
-const REGISTRY = Object.fromEntries([invest, chart, info, watchlist, movers, overview, news, suggested, breadth].map((w) => [w.type, w]));
+const REGISTRY: Record<string, WidgetDef> = Object.fromEntries(
+  ([invest, chart, info, watchlist, movers, overview, news, suggested, breadth] as WidgetDef[]).map((w) => [w.type, w]),
+);
 
 const DEFAULT_LAYOUT = [
   { type: 'invest', x: 0, y: 0, w: 6, h: 9 },
@@ -26,30 +29,30 @@ const DEFAULT_LAYOUT = [
   { type: 'suggested', x: 6, y: 17, w: 6, h: 9 },
 ];
 
-const newId = () => Math.random().toString(36).slice(2, 10);
+const newId = (): string => Math.random().toString(36).slice(2, 10);
 
 // ---------- state ----------
-let state = { widgets: [], positions: [], welcomeDismissed: false };
+let state: Required<SavedState> = { widgets: [], positions: [], welcomeDismissed: false };
 const persist = debounce(() => api.saveState(state).catch((e) => console.error('save failed', e)), 400);
 
-const live = new Map(); // id -> { def, instance, el }
+const live = new Map<string, { def: WidgetDef; instance: WidgetInstance; el: HTMLElement }>();
 
-const app = {
+const app: App = {
   focused: null,
   focus(sym) {
     app.focused = sym;
     for (const { instance } of live.values()) instance.onFocus?.(sym);
   },
   resolveSymbol,
-  priceOf: (sym) => market.bySymbol.get(sym)?.price ?? null,
-  nameOf: (sym) => market.bySymbol.get(sym)?.name || '',
+  priceOf: (sym: string) => market.bySymbol.get(sym)?.price ?? null,
+  nameOf: (sym: string) => market.bySymbol.get(sym)?.name || '',
   // Click on a stock anywhere: point the chart/info widgets at it and open its detail modal.
   show(sym, from) { app.focus(sym); openStock(sym, app, from); },
   getPositions: () => state.positions,
   // Every symbol the person follows: watchlists, picks, and the stock on screen.
   myStocks() {
     const set = new Set(state.positions.map((p) => p.symbol));
-    for (const w of state.widgets) if (w.type === 'watchlist') (w.config?.symbols || []).forEach((s) => set.add(s));
+    for (const w of state.widgets) if (w.type === 'watchlist') (w.config?.symbols || []).forEach((s: string) => set.add(s));
     if (app.focused) set.add(app.focused);
     return set;
   },
@@ -63,7 +66,7 @@ const app = {
     const fees = { ...DEFAULT_FEES, ...cfg?.fees };
     const p = market.bySymbol.get(sym)?.price;
     if (!p) { toast(`No price yet for ${sym}, so it can't be added.`); return; }
-    let lot = null;
+    let lot: number | null = null;
     try { lot = (await api.stock(sym)).boardLot; } catch { /* fall back to the price table */ }
     if (app.hasPick(sym)) return; // added while the board lot was loading
     const r = plan(amount, p, lot || boardLot(p), fees);
@@ -132,9 +135,9 @@ function syncLayout() {
   persist();
 }
 
-function addWidget(w) {
+function addWidget(w: WidgetState): HTMLElement | undefined {
   const def = REGISTRY[w.type];
-  if (!def) return;
+  if (!def) return undefined;
   w.config = { ...structuredClone(def.defaults), ...(w.config || {}) };
   const item = el(`
     <div class="grid-stack-item">
@@ -157,8 +160,8 @@ function addWidget(w) {
     minW: def.size.minW, minH: def.size.minH, autoPosition: w.x == null,
   });
 
-  const helpBtn = item.querySelector('.help-btn');
-  const help = item.querySelector('.w-help');
+  const helpBtn = must(item, '.help-btn');
+  const help = must(item, '.w-help');
   helpBtn.addEventListener('click', () => {
     help.hidden = !help.hidden;
     helpBtn.classList.toggle('on', !help.hidden);
@@ -166,22 +169,22 @@ function addWidget(w) {
   });
 
   const instance = def.mount({
-    body: item.querySelector('.w-body'),
-    tools: item.querySelector('.w-slot'),
-    config: w.config,
+    body: must(item, '.w-body'),
+    tools: must(item, '.w-slot'),
+    config: w.config ?? {},
     save: persist,
-    setTitle: (t) => { item.querySelector('.w-title').textContent = t; },
+    setTitle: (t) => { must(item, '.w-title').textContent = t; },
     app,
   }) || {};
   live.set(w.id, { def, instance, el: item });
   if (instance.onMarket) market.subscribe(instance.onMarket);
 
-  item.querySelector('.w-remove').addEventListener('click', () => removeWidget(w.id));
+  must(item, '.w-remove').addEventListener('click', () => removeWidget(w.id));
   updateEmpty();
   return item;
 }
 
-function unmount(id) {
+function unmount(id: string): void {
   const entry = live.get(id);
   if (!entry) return;
   if (entry.instance.onMarket) market.listeners.delete(entry.instance.onMarket);
@@ -190,7 +193,7 @@ function unmount(id) {
   live.delete(id);
 }
 
-function removeWidget(id) {
+function removeWidget(id: string): void {
   const w = state.widgets.find((x) => x.id === id);
   if (!w) return;
   unmount(id);
@@ -203,7 +206,7 @@ function removeWidget(id) {
   });
 }
 
-function loadLayout(widgets) {
+function loadLayout(widgets: WidgetState[]): void {
   for (const id of [...live.keys()]) unmount(id);
   state.widgets = widgets;
   grid.column(12, 'none');
@@ -216,27 +219,27 @@ function loadLayout(widgets) {
 }
 const defaultLayout = () => DEFAULT_LAYOUT.map((w) => ({ ...w, id: newId() }));
 
-const updateEmpty = () => { document.getElementById('empty').hidden = live.size > 0; };
+const updateEmpty = () => { must(document, '#empty').hidden = live.size > 0; };
 
 // ---------- edit mode ----------
-const editBtn = document.getElementById('edit-layout');
-function setEditing(on) {
+const editBtn = must(document, '#edit-layout');
+function setEditing(on: boolean): void {
   document.body.classList.toggle('editing', on);
-  document.getElementById('edit-banner').hidden = !on;
+  must(document, '#edit-banner').hidden = !on;
   editBtn.classList.toggle('on', on);
   editBtn.innerHTML = on ? '<span aria-hidden="true">✓</span> Done editing' : '<span aria-hidden="true">✎</span> Edit layout';
 }
 editBtn.addEventListener('click', () => setEditing(!document.body.classList.contains('editing')));
-document.getElementById('done-editing').addEventListener('click', () => { setEditing(false); toast('Layout saved'); });
-document.getElementById('reset-layout').addEventListener('click', () => {
+must(document, '#done-editing').addEventListener('click', () => { setEditing(false); toast('Layout saved'); });
+must(document, '#reset-layout').addEventListener('click', () => {
   const before = structuredClone(state.widgets);
   loadLayout(defaultLayout());
   toast('Layout reset to default. Your picks are kept.', { action: 'Undo', onAction: () => loadLayout(before) });
 });
 
 // ---------- add-widget menu ----------
-const menu = document.getElementById('widget-menu');
-const addBtn = document.getElementById('add-widget');
+const menu = must(document, '#widget-menu');
+const addBtn = must(document, '#add-widget');
 menu.innerHTML = '<div class="menu-title">Choose a widget to add to your dashboard</div>' + Object.values(REGISTRY).map((d) => `
   <button data-type="${d.type}">
     <span class="mi-icon" aria-hidden="true">${d.icon}</span>
@@ -244,29 +247,30 @@ menu.innerHTML = '<div class="menu-title">Choose a widget to add to your dashboa
   </button>`).join('');
 const toggleMenu = (show = menu.hidden) => { menu.hidden = !show; addBtn.setAttribute('aria-expanded', String(show)); };
 addBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
-document.getElementById('empty-add').addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(true); addBtn.scrollIntoView(); });
-document.getElementById('empty-reset').addEventListener('click', () => loadLayout(defaultLayout()));
-document.addEventListener('click', (e) => { if (!menu.contains(e.target)) toggleMenu(false); });
+must(document, '#empty-add').addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(true); addBtn.scrollIntoView(); });
+must(document, '#empty-reset').addEventListener('click', () => loadLayout(defaultLayout()));
+document.addEventListener('click', (e) => { if (!(e.target instanceof Node) || !menu.contains(e.target)) toggleMenu(false); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleMenu(false); });
 menu.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-type]');
+  const b = hit(e, '[data-type]');
   if (!b) return;
   toggleMenu(false);
-  const w = { id: newId(), type: b.dataset.type };
+  const type = b.dataset.type!;
+  const w: WidgetState = { id: newId(), type };
   state.widgets.push(w);
   const item = addWidget(w);
   syncLayout();
-  item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  toast(`Added "${REGISTRY[w.type].title}". Use Edit layout to move or resize it.`);
+  item?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast(`Added "${REGISTRY[type]?.title}". Use Edit layout to move or resize it.`);
 });
 
 // ---------- header ----------
-document.getElementById('refresh').addEventListener('click', async () => {
+must(document, '#refresh').addEventListener('click', async () => {
   await market.refresh();
   toast('Prices updated');
 });
 
-const lookup = document.getElementById('lookup');
+const lookup = must<HTMLInputElement>(document, '#lookup');
 function doLookup() {
   if (!lookup.value.trim()) return;
   const sym = resolveSymbol(lookup.value);
@@ -286,17 +290,17 @@ lookup.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLookup(); }
 lookup.addEventListener('change', doLookup);
 
 // Dotted jargon terms open a short definition under the word; clicking elsewhere closes it.
-const pop = document.getElementById('term-pop');
-let popFor = null;
+const pop = must(document, '#term-pop');
+let popFor: Element | null = null;
 const closePop = () => { pop.hidden = true; popFor = null; };
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('.term[data-term]');
-  if (!t) { if (!pop.contains(e.target)) closePop(); return; }
+  const t = hit(e, '.term[data-term]');
+  if (!t) { if (!(e.target instanceof Node) || !pop.contains(e.target)) closePop(); return; }
   e.preventDefault();
   if (popFor === t) { closePop(); return; }
-  const text = GLOSSARY[t.dataset.term];
+  const text = GLOSSARY[t.dataset.term!];
   if (!text) return;
-  pop.innerHTML = `<b>${esc(t.textContent.replace(/[()]/g, ''))}</b>${esc(text)}`;
+  pop.innerHTML = `<b>${esc((t.textContent ?? '').replace(/[()]/g, ''))}</b>${esc(text)}`;
   pop.hidden = false;
   const r = t.getBoundingClientRect();
   const left = Math.min(Math.max(8, r.left + window.scrollX), window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 8);
@@ -309,27 +313,27 @@ window.addEventListener('resize', closePop);
 document.addEventListener('scroll', closePop, true);
 
 // ---------- welcome ----------
-const welcome = document.getElementById('welcome');
+const welcome = must(document, '#welcome');
 const dismissWelcome = () => { welcome.hidden = true; state.welcomeDismissed = true; persist(); };
-document.getElementById('welcome-close').addEventListener('click', dismissWelcome);
-document.getElementById('welcome-plan').addEventListener('click', () => {
+must(document, '#welcome-close').addEventListener('click', dismissWelcome);
+must(document, '#welcome-plan').addEventListener('click', () => {
   let entry = [...live.values()].find((x) => x.def.type === 'invest');
   if (!entry) {
-    const w = { id: newId(), type: 'invest' };
+    const w: WidgetState = { id: newId(), type: 'invest' };
     state.widgets.push(w);
     addWidget(w);
     syncLayout();
     entry = live.get(w.id);
   }
-  entry.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  entry.instance.onPlan?.();
+  entry?.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  entry?.instance.onPlan?.();
 });
 
 // ---------- status, ticker, symbol list ----------
-const statusEl = document.getElementById('market-status');
-const updatedEl = document.getElementById('updated');
-const tickerEl = document.getElementById('ticker');
-const datalist = document.getElementById('symbols');
+const statusEl = must(document, '#market-status');
+const updatedEl = must(document, '#updated');
+const tickerEl = must(document, '#ticker');
+const datalist = must(document, '#symbols');
 let datalistCount = 0;
 
 function paintStatus() {
@@ -360,8 +364,8 @@ market.subscribe((m) => {
   tickerEl.innerHTML = `<div class="ticker-track">${items}${items}</div>`;
 });
 tickerEl.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sym]');
-  if (t) app.show(t.dataset.sym, t);
+  const t = hit(e, '[data-sym]');
+  if (t) app.show(t.dataset.sym!, t);
 });
 
 // ---------- boot ----------

@@ -1,12 +1,17 @@
 // Board-lot + PH broker-fee math used by the Put Money On widget.
 
+import type { Fees } from './types.ts';
+export type { Fees };
+export interface FeeBreakdown { commission: number; vat: number; pse: number; sccp: number; salesTax: number; total: number }
+export interface Plan { shares: number; gross: number; fee: FeeBreakdown; total: number; left: number; oneLot?: number }
+
 // Typical PH online-broker fees. Rates are percentages.
 // `custodial` is BPI Trade's yearly custody fee in pesos. It isn't charged per trade, so it
 // stays out of fees()/plan()/breakEven() and is shown as a separate yearly cost.
-export const DEFAULT_FEES = { commission: 0.25, minCommission: 20, vat: 12, pse: 0.005, sccp: 0.01, salesTax: 0.1, custodial: 120 };
+export const DEFAULT_FEES: Fees = { commission: 0.25, minCommission: 20, vat: 12, pse: 0.005, sccp: 0.01, salesTax: 0.1, custodial: 120 };
 
 // PSE board lot table by price band (used when PSE Edge doesn't report one).
-export function boardLot(p) {
+export function boardLot(p: number): number {
   if (p >= 1000) return 5;
   if (p >= 50) return 10;
   if (p >= 5) return 100;
@@ -16,7 +21,7 @@ export function boardLot(p) {
   return 1000000;
 }
 
-export function fees(gross, f, side) {
+export function fees(gross: number, f: Fees, side: 'buy' | 'sell'): FeeBreakdown {
   if (gross <= 0) return { commission: 0, vat: 0, pse: 0, sccp: 0, salesTax: 0, total: 0 };
   const commission = Math.max((gross * f.commission) / 100, f.minCommission);
   const vat = (commission * f.vat) / 100;
@@ -27,7 +32,7 @@ export function fees(gross, f, side) {
 }
 
 // Most shares (in whole board lots) that `budget` can buy at `p`, fees included.
-export function plan(budget, p, lot, f) {
+export function plan(budget: number, p: number, lot: number, f: Fees): Plan | null {
   if (!(budget > 0 && p > 0 && lot > 0)) return null;
   let lots = Math.floor(budget / (p * lot));
   while (lots > 0) {
@@ -41,10 +46,10 @@ export function plan(budget, p, lot, f) {
   return { shares: 0, gross: 0, fee, total: 0, left: budget, oneLot: gross + fee.total };
 }
 
-export const netSell = (shares, p, f) => shares * p - fees(shares * p, f, 'sell').total;
+export const netSell = (shares: number, p: number, f: Fees): number => shares * p - fees(shares * p, f, 'sell').total;
 
 // Sell price at which the position just covers what was paid.
-export function breakEven(shares, cost, f) {
+export function breakEven(shares: number, cost: number, f: Fees): number | null {
   if (!shares) return null;
   let lo = 0, hi = (cost / shares) * 2 + 1;
   for (let i = 0; i < 60; i++) {

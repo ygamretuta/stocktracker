@@ -1,12 +1,14 @@
 // Stock detail modal: price, key facts, a 6-month chart, the company profile and recent news.
-import { api, market } from './api.js';
-import { esc, price, chg, compact, int, term, pickButton } from './util.js';
+import { api, market } from './api.ts';
+import type { IChartApi } from 'lightweight-charts';
+import type { App, Candle, CompanyProfile, NewsItem, Stock, StockDetail } from './types.ts';
+import { hit, must, errText, esc, price, chg, compact, int, term, pickButton } from './util.ts';
 
-const root = document.getElementById('stock-modal');
+const root = must(document, '#stock-modal');
 let reqId = 0;
-let chart = null;
-let opener = null;
-let current = null;
+let chart: IChartApi | null = null;
+let opener: Element | null = null;
+let current: string | null = null;
 
 // Keep the header price moving while the modal is open.
 market.subscribe((mk) => {
@@ -26,17 +28,18 @@ function close() {
   reqId++;
   current = null;
   document.body.classList.remove('modal-open');
-  opener?.focus?.();
+  if (opener instanceof HTMLElement) opener.focus();
   opener = null;
 }
 
-const spinner = (label) => `<div class="loading" role="status"><span class="spinner" aria-hidden="true"></span>${label}</div>`;
-const stat = (k, v) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
-const failed = (what, e) => `<div class="w-error">Couldn't load ${what}: ${esc(e?.message || 'unknown error')}</div>`;
+const spinner = (label: string): string => `<div class="loading" role="status"><span class="spinner" aria-hidden="true"></span>${label}</div>`;
+const stat = (k: string, v: string | number): string => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+const failed = (what: string, e: unknown): string => `<div class="w-error">Couldn't load ${what}: ${esc(errText(e) || 'unknown error')}</div>`;
 
-function renderFacts(d, live) {
+function renderFacts(d: StockDetail, live: Stock | undefined): string {
   const last = live?.price ?? d.last ?? d.prevClose;
-  const pos = d.week52High > d.week52Low ? ((last - d.week52Low) / (d.week52High - d.week52Low)) * 100 : null;
+  const { week52High: hi, week52Low: lo } = d;
+  const pos = hi != null && lo != null && last != null && hi > lo ? ((last - lo) / (hi - lo)) * 100 : null;
   return `
     ${pos != null ? `
       <div class="small muted">${term('52-week range', '52w')}</div>
@@ -58,8 +61,8 @@ function renderFacts(d, live) {
     </div>`;
 }
 
-function renderCompany(c) {
-  const row = (k, v) => (v ? `<div class="kv"><span class="muted">${k}</span><span>${v}</span></div>` : '');
+function renderCompany(c: CompanyProfile): string {
+  const row = (k: string, v: string | null): string => (v ? `<div class="kv"><span class="muted">${k}</span><span>${v}</span></div>` : '');
   const sector = [c.sector, c.subsector].filter(Boolean).join(' · ');
   return `
     ${c.description.length ? `<div class="about">${c.description.map((p) => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
@@ -74,7 +77,7 @@ function renderCompany(c) {
     </div>`;
 }
 
-function renderNews(items) {
+function renderNews(items: NewsItem[]): string {
   if (!items.length) return '<div class="muted small">No recent stories or announcements mention this stock.</div>';
   return `<ul class="mnews">${items.map((n) => `<li>
       <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>
@@ -82,7 +85,7 @@ function renderNews(items) {
     </li>`).join('')}</ul>`;
 }
 
-function drawChart(host, candles) {
+function drawChart(host: HTMLElement, candles: Candle[]): void {
   const LC = window.LightweightCharts;
   chart?.remove();
   chart = LC.createChart(host, {
@@ -92,7 +95,10 @@ function drawChart(host, candles) {
     rightPriceScale: { borderColor: '#1e2a37' },
     timeScale: { borderColor: '#1e2a37' },
   });
-  const up = candles.at(-1).close >= candles[0].close;
+  const first = candles[0];
+  const lastCandle = candles.at(-1);
+  if (!first || !lastCandle) return;
+  const up = lastCandle.close >= first.close;
   const color = up ? '#22c55e' : '#f04f4f';
   const series = chart.addAreaSeries({ lineColor: color, topColor: up ? 'rgba(34,197,94,.25)' : 'rgba(240,79,79,.25)', bottomColor: 'transparent', lineWidth: 2 });
   series.setData(candles.map((c) => ({ time: c.time, value: c.close })));
@@ -100,12 +106,12 @@ function drawChart(host, candles) {
 }
 
 // Re-draws the modal's pick button, e.g. after the stock was added to My Picks.
-export function syncPickButton(app) {
+export function syncPickButton(app: App): void {
   const slot = root.querySelector('[data-pickslot]');
   if (current && slot) slot.innerHTML = pickButton(current, app.hasPick(current), '＋ Add to My Picks', 'btn primary');
 }
 
-export function openStock(sym, app, from = document.activeElement) {
+export function openStock(sym: string, app: App, from: Element | null = document.activeElement): void {
   const id = ++reqId;
   opener = from;
   const s = market.bySymbol.get(sym);
@@ -133,21 +139,21 @@ export function openStock(sym, app, from = document.activeElement) {
         <a class="btn" data-edge target="_blank" rel="noopener" hidden>PSE Edge ↗</a>
       </footer>
     </div>`;
-  const $ = (q) => root.querySelector(q);
+  const $ = <T extends HTMLElement = HTMLElement>(q: string): T => must<T>(root, q);
   const dialog = $('.modal');
   dialog.focus();
   current = sym;
   syncPickButton(app);
-  $('[data-pickslot]').addEventListener('click', (e) => { if (e.target.closest('[data-pick]')) app.addPick(sym); });
+  $('[data-pickslot]').addEventListener('click', (e) => { if (hit(e, '[data-pick]')) app.addPick(sym); });
 
-  const fill = (q, html) => { if (id === reqId) $(q).innerHTML = html; };
+  const fill = (q: string, html: string): void => { if (id === reqId) $(q).innerHTML = html; };
   const live = () => market.bySymbol.get(sym);
 
   const jobs = [];
   jobs.push(api.stock(sym).then((d) => {
     if (id !== reqId) return;
     if (d.company) $('[data-name]').textContent = d.company;
-    $('[data-edge]').href = d.edgeUrl;
+    $<HTMLAnchorElement>('[data-edge]').href = d.edgeUrl;
     $('[data-edge]').hidden = false;
     $('[data-price]').textContent = price(live()?.price ?? d.last ?? d.prevClose);
     fill('[data-facts]', renderFacts(d, live()));
@@ -174,20 +180,20 @@ export function openStock(sym, app, from = document.activeElement) {
 }
 
 root.addEventListener('click', (e) => {
-  if (e.target === root || e.target.closest('[data-close]')) close();
+  if (e.target === root || hit(e, '[data-close]')) close();
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || root.hidden) return;
   // The glossary popover handles its own Escape first.
-  if (!document.getElementById('term-pop').hidden) return;
+  if (!must(document, '#term-pop').hidden) return;
   close();
 });
 // Keep Tab inside the dialog while it is open.
 root.addEventListener('keydown', (e) => {
   if (e.key !== 'Tab') return;
-  const items = [...root.querySelectorAll('a[href]:not([hidden]), button:not([disabled])')];
-  if (!items.length) return;
+  const items = [...root.querySelectorAll<HTMLElement>('a[href]:not([hidden]), button:not([disabled])')];
   const first = items[0], last = items.at(-1);
+  if (!first || !last) return;
   if (e.shiftKey && (document.activeElement === first || document.activeElement === root.querySelector('.modal'))) { e.preventDefault(); last.focus(); }
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });

@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "pse-tracker", "runtimeExecutable": "node", "runtimeArgs": ["server.js"], "port": 5173 }
+    { "name": "pse-tracker", "runtimeExecutable": "npm", "runtimeArgs": ["start"], "port": 5173 }
   ]
 }

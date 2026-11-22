@@ -1,7 +1,8 @@
-import { api } from '../api.js';
-import { el, esc, price, pct, dir, pickButton } from '../util.js';
+import { api } from '../api.ts';
+import { hit, el, esc, price, pct, dir, pickButton, errText } from '../util.ts';
+import type { NewsFeed, PerformanceSnapshot, WidgetDef } from '../types.ts';
 
-const WINDOWS = ['3M', '6M'];
+const WINDOWS = ['3M', '6M'] as const;
 
 export default {
   type: 'suggested',
@@ -13,16 +14,16 @@ export default {
   defaults: { window: '3M' },
 
   mount({ body, tools, config, save, app }) {
-    let perf = null;
-    let news = null;
-    let perfError = null;
-    let timer = null;
+    let perf: PerformanceSnapshot | null = null;
+    let news: NewsFeed | null = null;
+    let perfError: string | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const tabs = el(`<div class="tabs" title="Look-back period">${WINDOWS.map((w) => `<button data-w="${w}">${w}</button>`).join('')}</div>`);
+    const tabs = el<HTMLDivElement>(`<div class="tabs" title="Look-back period">${WINDOWS.map((w) => `<button data-w="${w}">${w}</button>`).join('')}</div>`);
     tools.prepend(tabs);
     const paintTabs = () => tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.w === config.window));
     tabs.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-w]');
+      const b = hit(e, '[data-w]');
       if (!b) return;
       config.window = b.dataset.w;
       save();
@@ -32,13 +33,13 @@ export default {
     paintTabs();
 
     body.addEventListener('click', (e) => {
-      const pick = e.target.closest('[data-pick]');
-      if (pick) { app.addPick(pick.dataset.pick); return; }
-      const row = e.target.closest('[data-sym]');
-      if (row) app.show(row.dataset.sym, row);
+      const pick = hit(e, '[data-pick]');
+      if (pick) { app.addPick(pick.dataset.pick!); return; }
+      const row = hit(e, '[data-sym]');
+      if (row) app.show(row.dataset.sym!, row);
     });
 
-    const row = (sym, name, right, extra = '') => `
+    const row = (sym: string, name: string, right: string, extra = ''): string => `
       <tr class="click" data-sym="${esc(sym)}" title="Click to view ${esc(sym)}">
         <td><div class="sym">${esc(sym)}</div><div class="name">${esc(name)}</div></td>
         <td class="num">${right}</td>
@@ -55,10 +56,13 @@ export default {
     }
 
     function render() {
-      const w = config.window;
+      const w: (typeof WINDOWS)[number] = config.window;
       let top = '';
       if (perf?.results?.length) {
-        const rows = perf.results.filter((r) => r[w] != null).sort((a, b) => b[w] - a[w]).slice(0, 5);
+        const rows = perf.results
+          .filter((r) => r[w] != null)
+          .sort((a, b) => (b[w] ?? 0) - (a[w] ?? 0))
+          .slice(0, 5);
         top = rows.length
           ? `<table class="t"><thead><tr><th>Stock</th><th class="num">Last ${w}</th><th class="num">Price</th><th></th></tr></thead>
               <tbody>${rows.map((r) => row(r.symbol, r.name, `<span class="${dir(r[w])}">${pct(r[w])}</span>`, price(app.priceOf(r.symbol) ?? r.lastClose))).join('')}</tbody></table>`
@@ -66,7 +70,7 @@ export default {
       } else if (perf?.state === 'running') {
         top = `<div class="hint">Crunching ${w} price history… ${perf.done}/${perf.total || '…'} stocks done</div>`;
       } else if (perfError || perf?.error) {
-        top = `<div class="hint w-error">Couldn't rank performance: ${esc(perfError || perf.error)}</div>`;
+        top = `<div class="hint w-error">Couldn't rank performance: ${esc(perfError || perf?.error)}</div>`;
       } else {
         top = '<div class="hint">Loading…</div>';
       }
@@ -91,7 +95,7 @@ export default {
         perf = await api.performance();
         perfError = null;
       } catch (e) {
-        perfError = e.message;
+        perfError = errText(e);
       }
       render();
       // While the server is still building the ranking, check back every few seconds.
@@ -113,4 +117,4 @@ export default {
       destroy() { clearTimeout(timer); clearInterval(refresh); },
     };
   },
-};
+} satisfies WidgetDef;
