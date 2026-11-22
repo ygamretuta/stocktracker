@@ -1,6 +1,6 @@
 // PSE Tracker API. Proxies Philippine Stock Exchange data (phisix API + PSE Edge) and,
 // when given a state file, stores the dashboard layout / positions there.
-// Used by server.ts (local) and api/index.js (Vercel serverless).
+// Used by local-server.ts (local) and api/index.js (Vercel serverless).
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -211,11 +211,11 @@ async function writeState(file: string, state: SavedState): Promise<void> {
 
 // ---------- http ----------
 // `cacheSeconds` lets the Vercel CDN reuse a response, so many visitors share one upstream fetch.
-function send(res: ServerResponse, status: number, body: unknown, cacheSeconds = 0): void {
+function send(res: ServerResponse, status: number, body: unknown, cacheSeconds = 0, extra: Record<string, string> = {}): void {
   const cache = SERVERLESS && status === 200 && cacheSeconds > 0
     ? `public, s-maxage=${cacheSeconds}, stale-while-revalidate=${cacheSeconds * 5}`
     : 'no-store';
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': cache });
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': cache, ...extra });
   res.end(JSON.stringify(body));
 }
 
@@ -266,7 +266,8 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, url: 
       return send(res, 200, await getHistory(sym, url.searchParams.get('range') || '6M'), 300);
     }
     if (p === '/api/state') {
-      if (req.method === 'GET') return send(res, 200, (stateFile && (await readState(stateFile))) || {});
+      // The header tells the page whether to keep its own copy instead of saving here.
+      if (req.method === 'GET') return send(res, 200, (stateFile && (await readState(stateFile))) || {}, 0, { 'X-State-Storage': stateFile ? 'server' : 'browser' });
       if (req.method === 'PUT') {
         // Hosted copies keep each visitor's layout and picks in their own browser.
         if (!stateFile) return send(res, 501, { error: 'Saving is handled by your browser on this host' });

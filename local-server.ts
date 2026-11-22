@@ -1,4 +1,5 @@
 // PSE Tracker — local-only dashboard server.
+// (Not named server.ts: Vercel would mistake that for its own entry point.)
 // Serves the dashboard, the API from handler.ts, and saves the layout / positions in data/state.json.
 
 import http from 'node:http';

@@ -31,16 +31,24 @@ function readLocalState(): SavedState | null {
   }
 }
 
+// False once the host has said it won't store anything, so we stop sending saves it would refuse.
+let hostStoresState = true;
+
 async function loadState(): Promise<SavedState> {
-  const server = await json<SavedState>('/api/state');
+  const res = await fetch('/api/state');
+  if (!res.ok) throw new HttpError(`HTTP ${res.status}`, res.status);
+  hostStoresState = res.headers.get('X-State-Storage') !== 'browser';
+  const server = (await res.json()) as SavedState;
   return Object.keys(server).length ? server : (readLocalState() ?? server);
 }
 
 async function saveState(state: SavedState): Promise<void> {
   try {
+    if (!hostStoresState) throw new HttpError('Saving is handled by your browser on this host', 501);
     await json<{ ok: true }>('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) });
   } catch (e) {
     if (!(e instanceof HttpError && e.status === 501)) throw e;
+    hostStoresState = false;
     try { localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(state)); } catch { /* storage blocked or full */ }
   }
 }

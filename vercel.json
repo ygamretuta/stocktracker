@@ -3,11 +3,20 @@
   "buildCommand": "npm run build:vercel",
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "functions": {
-    "api/index.js": { "maxDuration": 60, "includeFiles": "dist/api/**" }
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": "dist/api/**"
+    }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index?path=:path*" }
-  ]
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?path=:path*"
+    }
+  ],
+  "framework": null
 }

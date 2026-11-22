@@ -25,7 +25,7 @@ npm run check       # both
 npm run build:watch # recompile the browser code on save
 ```
 
-- The server (`server.ts`, `news.ts`, ...) runs directly on Node's built-in TypeScript support, so there is no server build step. Requires Node 22.18+.
+- The server (`local-server.ts`, `handler.ts`, `news.ts`, ...) runs directly on Node's built-in TypeScript support, so there is no server build step. Requires Node 22.18+.
 - The browser code in `public/js/` is compiled to `dist/js/` by `npm run build`, which `npm start` runs for you.
 - Type-aware ESLint isn't set up: typescript-eslint doesn't support TypeScript 7 yet. `npm run typecheck` also flags unused variables and parameters.
 

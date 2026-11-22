@@ -5,8 +5,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
-    "start": "npm run build && node server.ts",
-    "start:lan": "npm run build && HOST=0.0.0.0 node server.ts",
+    "start": "npm run build && node local-server.ts",
+    "start:lan": "npm run build && HOST=0.0.0.0 node local-server.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test \"test/**/*.test.ts\"",
     "check": "npm run typecheck && npm test",
